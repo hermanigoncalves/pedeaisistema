@@ -1,0 +1,324 @@
+{
+  "name": "IA Gerenciamento de Estoque (PedeAi)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -256,
+        -48
+      ],
+      "id": "f4423a97-142b-41d7-8733-f7e1107d54e8",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Restaurantes",
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        -48
+      ],
+      "id": "d4e24f5d-4d65-430d-ac4f-de18c49f636f",
+      "name": "Get Restaurantes",
+      "credentials": {
+        "supabaseApi": {
+          "id": "RZuUSV6nhjCoPcMY",
+          "name": "Supabase PedeAi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Produtos",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "restaurante_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        416,
+        -304
+      ],
+      "id": "aa65d36a-ee06-409e-80a5-cf93e4417102",
+      "name": "Get ID Restaurantes",
+      "credentials": {
+        "supabaseApi": {
+          "id": "RZuUSV6nhjCoPcMY",
+          "name": "Supabase PedeAi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.id }}",
+                    "rightValue": "41fd45bb-48c6-463f-a2e7-2e37c6c9bf89",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "19631e6d-33e2-4854-a1c6-40866431e1c9"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Scaley IA"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "9830e857-f259-43f4-978a-ca5ca36ddc5a",
+                    "leftValue": "",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        160,
+        -48
+      ],
+      "id": "ea8fdf62-aced-41b9-8405-d3315badd766",
+      "name": "Filtro"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Defina o limite de estoque baixo\nconst LIMITE_ESTOQUE = 10;\n\n// 2. Filtra apenas os produtos com estoque abaixo do limite\n// IMPORTANTE: Certifique-se que a coluna \"quantidade\" ou \"estoque\" está vindo no nó anterior\nconst produtosBaixo = $input.all().filter(item => {\n  const qtd = Number(item.json.quantidade || 0); // Troque \"quantidade\" pelo nome real da sua coluna se for diferente\n  return qtd < LIMITE_ESTOQUE;\n});\n\n// 3. Se nenhum produto estiver baixo, encerra aqui (não envia nada)\nif (produtosBaixo.length === 0) {\n  return [];\n}\n\n// 4. Cria a lista formatada (Ex: \"- Skol: 5 un\")\nconst listaTexto = produtosBaixo\n  .map(p => `- ${p.json.nome}: ${p.json.quantidade || 0} un.`)\n  .join('\\n');\n\n// 5. Retorna UM ÚNICO item com o resumo pronto\nreturn {\n  json: {\n    // Essa é a mensagem completa que você vai mandar no WhatsApp\n    mensagem_final: `🚨 *ALERTA DE ESTOQUE BAIXO*\\n\\nOs seguintes produtos precisam de reposição:\\n\\n${listaTexto}`,\n    \n    // Dados extras caso precise usar no filtro ou log\n    total_itens_baixo: produtosBaixo.length,\n    restaurante_id: produtosBaixo[0].json.restaurante_id\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        -304
+      ],
+      "id": "779effbd-5afb-49a3-89ae-90667440a56d",
+      "name": "Filtro Produtos"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.mensagem_final }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=Você é o Gestor de Estoque Inteligente da Scaley IA. Sua função é enviar alertas urgentes e organizados para o dono do restaurante via WhatsApp.  DIRETRIZES DE ESTILO: - Tom: Profissional, direto e de urgência (sem ser desesperado). - Formatação: Otimizada para leitura rápida no celular (use negrito e quebras de linha). - Emojis: Use emojis estratégicos para destacar a atenção (🚨, 📦, 📉).  SUA TAREFA: Receba a lista de produtos com estoque baixo e gere uma mensagem no seguinte formato:  🚨 *ALERTA DE REPOSIÇÃO - SCALEY*  Identificamos que os seguintes itens entraram na zona crítica de estoque e precisam de compra imediata:  [Aqui você insere a lista dos itens que recebeu, formatada com bolinhas ou check]  💡 *Sugestão:* Entre em contato com seus fornecedores ainda hoje para evitar ruptura nas vendas.  --- Gerado automaticamente pelo Sistema de Estoque Scaley IA"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        800,
+        -304
+      ],
+      "id": "bf38fd86-aff8-4072-995c-f53d55c377ac",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        736,
+        -144
+      ],
+      "id": "35d94d6c-3256-4cd7-8114-dcc68be303a2",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "Z4yK9Bg5lVmrX6Ff",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Tratar Dados1').last().json.url_instancia }}/send/text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "={{ $('Tratar Dados1').last().json.token_instancia }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $('Get Restaurantes').last().json.telefone_dono }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.text }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1136,
+        -304
+      ],
+      "id": "d069e4c2-3819-4aa9-be22-ad35890b8475",
+      "name": "Envia MSG - Dono"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Restaurantes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Restaurantes": {
+      "main": [
+        [
+          {
+            "node": "Filtro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtro": {
+      "main": [
+        [
+          {
+            "node": "Get ID Restaurantes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Get ID Restaurantes": {
+      "main": [
+        [
+          {
+            "node": "Filtro Produtos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtro Produtos": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Envia MSG - Dono",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "vcsPGvFfAbaIRRsQ"
+  },
+  "versionId": "5db68b4a-8229-4c5a-9319-79fe4e0c7276",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "09b0a30875672d09848a21742058c8773cc6467823980fb35d4eeff284d9d377"
+  },
+  "id": "YDgU2VHj2BtuLpIz",
+  "tags": []
+}

@@ -1,0 +1,369 @@
+{
+  "name": "IA Primeira Mensagem (PedeAi)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "leadpedeaichegou",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        16
+      ],
+      "id": "0545dab4-2d8e-49bd-a822-9de691736232",
+      "name": "Webhook",
+      "webhookId": "cf988540-c112-41ab-94ef-0f5ef5a2bdea"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "225792c2-fce4-4e33-8db9-8d0fc3e364d3",
+              "name": "nomeUsuario",
+              "value": "={{ $json.body.nome }}",
+              "type": "string"
+            },
+            {
+              "id": "90264b58-18f8-4065-bb52-881995db7f24",
+              "name": "telefoneUsuario",
+              "value": "={{ $json.body.telefone }}",
+              "type": "string"
+            },
+            {
+              "id": "b7d9318d-8d12-45e8-824e-58e4b0c1f392",
+              "name": "body.restauranteId",
+              "value": "={{ $json.body.restauranteId }}",
+              "type": "string"
+            },
+            {
+              "id": "92ec18ba-f7b0-4526-83ae-3dc7ebb7fbea",
+              "name": "nomeRestaurante",
+              "value": "={{ $json.body.restauranteNome }}",
+              "type": "string"
+            },
+            {
+              "id": "bb411723-774f-4988-a846-084904e43b50",
+              "name": "timeCheckin",
+              "value": "={{ $json.body.timestamp }}",
+              "type": "string"
+            },
+            {
+              "id": "d65fe9c5-3f2b-4028-970a-503177f12407",
+              "name": "body.mesaId",
+              "value": "={{ $json.body.mesaId }}",
+              "type": "string"
+            },
+            {
+              "id": "48970e1d-763c-420f-960d-8a468e53d43b",
+              "name": "usuarioNovoouNao",
+              "value": "={{ $json.body.isFirstVisit }}",
+              "type": "boolean"
+            },
+            {
+              "id": "57f235c1-48a5-4f74-ba5c-28eb38fc960d",
+              "name": "quantidadeVisita",
+              "value": "={{ $json.body.visits }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        16
+      ],
+      "id": "012104ef-a01d-49a1-b170-34675614a4d4",
+      "name": "Apuração"
+    },
+    {
+      "parameters": {
+        "amount": 1
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        672,
+        16
+      ],
+      "id": "6a65476d-f434-4a77-a198-1055018f9722",
+      "name": "Wait2",
+      "webhookId": "01c35f7e-36c3-4d7b-b547-c178954e858f"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://scaleyia.uazapi.com/message/presence",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "token",
+              "value": "ace7fbbf-ba56-41df-89f4-fd1e2c92765d"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $json.telefoneUsuario }}"
+            },
+            {
+              "name": "presence",
+              "value": "composing"
+            },
+            {
+              "name": "delay",
+              "value": "5000"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        448,
+        16
+      ],
+      "id": "f219955a-af5f-47bb-b54d-26fac89b4ca8",
+      "name": "Digitando...1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "47ff1d46-56d7-45b9-82f3-525e2866044d",
+              "leftValue": "={{ $('Apuração').last().json.usuarioNovoouNao }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        16
+      ],
+      "id": "8342da1a-1159-4b0d-bcd0-232518349bba",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://scaleyia.uazapi.com/send/text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "=ace7fbbf-ba56-41df-89f4-fd1e2c92765d"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $('Apuração').last().json.telefoneUsuario }}"
+            },
+            {
+              "name": "text",
+              "value": "=Olá {{ $('Apuração').last().json.nomeUsuario }}! 👋 Seja muito bem-vindo(a) ao {{ $('Apuração').last().json.nomeRestaurante }}.\n\nFicamos muito felizes em ter você aqui conosco pela primeira vez! Já abrimos o seu atendimento na Mesa {{ $('Apuração').last().json.body.mesaId }}. 📲\n\nComo posso te ajudar hoje? Se quiser dar uma olhada no nosso cardápio ou fazer um pedido, é só me falar! 🍔🍻"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        112
+      ],
+      "id": "94f9015f-46f5-48b6-978d-635a70da4a50",
+      "name": "primeiraVez"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://scaleyia.uazapi.com/send/text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "=ace7fbbf-ba56-41df-89f4-fd1e2c92765d"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $('Apuração').last().json.telefoneUsuario }}"
+            },
+            {
+              "name": "text",
+              "value": "=Olá {{ $('Apuração').last().json.nomeUsuario }}! 👋 Que alegria ter você de volta ao {{ $('Apuração').last().json.nomeRestaurante }}!\n\nEsta já é a sua visita número {{ $('Apuração').last().json.quantidadeVisita }} conosco! 🏆 Seu atendimento na Mesa {{ $('Apuração').last().json.body.mesaId }} já foi iniciado. 📲\n\nJá sabe o que vai pedir dessa vez ou quer dar mais uma olhadinha no cardápio? Sinta-se em casa! 😊🍔🍻"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        -80
+      ],
+      "id": "70c55b41-d826-4c87-9e27-af991c442b5f",
+      "name": "usuarioAntigo"
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n-n8n.zb8ckr.easypanel.host",
+            "user-agent": "curl/8.7.1",
+            "content-length": "239",
+            "accept": "*/*",
+            "content-type": "application/json",
+            "x-forwarded-for": "177.55.157.206",
+            "x-forwarded-host": "n8n-n8n.zb8ckr.easypanel.host",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "a3fad7af5585",
+            "x-real-ip": "177.55.157.206",
+            "accept-encoding": "gzip"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "nome": "Antigravity Test",
+            "telefone": "5511999999999",
+            "restauranteId": "test-id-123",
+            "mesaId": "99",
+            "restauranteNome": "PedeAi Demonstração",
+            "isFirstVisit": true,
+            "visits": 1,
+            "timestamp": "2026-05-08T23:01:59Z"
+          },
+          "webhookUrl": "https://n8n-n8n.zb8ckr.easypanel.host/webhook/leadpedeaichegou",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Apuração",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait2": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Digitando...1": {
+      "main": [
+        [
+          {
+            "node": "Wait2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apuração": {
+      "main": [
+        [
+          {
+            "node": "Digitando...1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "usuarioAntigo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "primeiraVez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "89581492-b6f1-4abd-966c-bba029b1db18",
+  "meta": {
+    "instanceId": "09b0a30875672d09848a21742058c8773cc6467823980fb35d4eeff284d9d377"
+  },
+  "id": "hh8hT1s9ep5NoVTV",
+  "tags": [
+    {
+      "updatedAt": "2026-05-08T22:45:40.450Z",
+      "createdAt": "2026-05-08T22:45:40.450Z",
+      "id": "oYmjcMKgNzwzvC0S",
+      "name": "Lead Chegou"
+    }
+  ]
+}

@@ -1,0 +1,112 @@
+Total chats: 65
+
+Chat 0: id=r93fc75627aa0d8 | wa_chatid=5511999910621@s.whatsapp.net | wa_name=Minha Claro | name=Claro
+  keys: chatbot_agentResetMemoryAt, chatbot_disableUntil, chatbot_lastTriggerAt, chatbot_lastTrigger_id, id, image, imagePreview, lead_assignedAttendant_id, lead_email, lead_field01, lead_field02, lead_field03, lead_field04, lead_field05, lead_field06, lead_field07, lead_field08, lead_field09, lead_field10, lead_field11, lead_field12, lead_field13, lead_field14, lead_field15, lead_field16, lead_field17, lead_field18, lead_field19, lead_field20, lead_fullName, lead_isTicketOpen, lead_kanbanOrder, lead_name, lead_notes, lead_personalid, lead_status, lead_tags, name, owner, phone, wa_archived, wa_chatid, wa_chatlid, wa_contactName, wa_ephemeralExpiration, wa_fastid, wa_isBlocked, wa_isGroup, wa_isGroup_admin, wa_isGroup_announce, wa_isGroup_community, wa_isGroup_member, wa_isPinned, wa_label, wa_lastMessageSender, wa_lastMessageTextVote, wa_lastMessageType, wa_lastMsgTimestamp, wa_muteEndTime, wa_name, wa_unreadCount
+
+Chat 1: id=r62792df0c05acf | wa_chatid=553398688577@s.whatsapp.net | wa_name=Saymithon | name=Saymithon
+  keys: chatbot_agentResetMemoryAt, chatbot_disableUntil, chatbot_lastTriggerAt, chatbot_lastTrigger_id, id, image, imagePreview, lead_assignedAttendant_id, lead_email, lead_field01, lead_field02, lead_field03, lead_field04, lead_field05, lead_field06, lead_field07, lead_field08, lead_field09, lead_field10, lead_field11, lead_field12, lead_field13, lead_field14, lead_field15, lead_field16, lead_field17, lead_field18, lead_field19, lead_field20, lead_fullName, lead_isTicketOpen, lead_kanbanOrder, lead_name, lead_notes, lead_personalid, lead_status, lead_tags, name, owner, phone, wa_archived, wa_chatid, wa_chatlid, wa_contactName, wa_ephemeralExpiration, wa_fastid, wa_isBlocked, wa_isGroup, wa_isGroup_admin, wa_isGroup_announce, wa_isGroup_community, wa_isGroup_member, wa_isPinned, wa_label, wa_lastMessageSender, wa_lastMessageTextVote, wa_lastMessageType, wa_lastMsgTimestamp, wa_muteEndTime, wa_name, wa_unreadCount
+
+Chat 2: id=r821a5c2a950d4a | wa_chatid=553384280306@s.whatsapp.net | wa_name=Isaque | name=Isaque
+  keys: chatbot_agentResetMemoryAt, chatbot_disableUntil, chatbot_lastTriggerAt, chatbot_lastTrigger_id, id, image, imagePreview, lead_assignedAttendant_id, lead_email, lead_field01, lead_field02, lead_field03, lead_field04, lead_field05, lead_field06, lead_field07, lead_field08, lead_field09, lead_field10, lead_field11, lead_field12, lead_field13, lead_field14, lead_field15, lead_field16, lead_field17, lead_field18, lead_field19, lead_field20, lead_fullName, lead_isTicketOpen, lead_kanbanOrder, lead_name, lead_notes, lead_personalid, lead_status, lead_tags, name, owner, phone, wa_archived, wa_chatid, wa_chatlid, wa_contactName, wa_ephemeralExpiration, wa_fastid, wa_isBlocked, wa_isGroup, wa_isGroup_admin, wa_isGroup_announce, wa_isGroup_community, wa_isGroup_member, wa_isPinned, wa_label, wa_lastMessageSender, wa_lastMessageTextVote, wa_lastMessageType, wa_lastMsgTimestamp, wa_muteEndTime, wa_name, wa_unreadCount
+
+Chat 3: id=rae67ce909ad6b9 | wa_chatid=553398497605@s.whatsapp.net | wa_name=Junior | name=Junior
+  keys: chatbot_agentResetMemoryAt, chatbot_disableUntil, chatbot_lastTriggerAt, chatbot_lastTrigger_id, id, image, imagePreview, lead_assignedAttendant_id, lead_email, lead_field01, lead_field02, lead_field03, lead_field04, lead_field05, lead_field06, lead_field07, lead_field08, lead_field09, lead_field10, lead_field11, lead_field12, lead_field13, lead_field14, lead_field15, lead_field16, lead_field17, lead_field18, lead_field19, lead_field20, lead_fullName, lead_isTicketOpen, lead_kanbanOrder, lead_name, lead_notes, lead_personalid, lead_status, lead_tags, name, owner, phone, wa_archived, wa_chatid, wa_chatlid, wa_contactName, wa_ephemeralExpiration, wa_fastid, wa_isBlocked, wa_isGroup, wa_isGroup_admin, wa_isGroup_announce, wa_isGroup_community, wa_isGroup_member, wa_isPinned, wa_label, wa_lastMessageSender, wa_lastMessageTextVote, wa_lastMessageType, wa_lastMsgTimestamp, wa_muteEndTime, wa_name, wa_unreadCount
+
+Response keys: hasMore, limit, messages, nextOffset, offset, returnedMessages
+Total messages (no filter): 100
+hasMore: true
+
+Msg 0:
+  keys: buttonOrListid, chatid, content, convertOptions, edited, error, fileURL, fromMe, id, isGroup, messageTimestamp, messageType, messageid, owner, quoted, reaction, send_folder_id, sender, senderName, source, status, text, track_id, track_source, vote
+  chatId: undefined
+  remoteJid: undefined
+  fromMe: false
+  senderName: 
+  type: undefined
+  content: {"Format":null,"hydratedTemplate":{"Title":{"DocumentMessage":{"URL":"https://mm
+
+Msg 1:
+  keys: buttonOrListid, chatid, content, convertOptions, edited, error, fileURL, fromMe, id, isGroup, messageTimestamp, messageType, messageid, owner, quoted, reaction, sendFunction, sendPayload, send_folder_id, sender, senderName, source, status, text, track_id, track_source, vote, wasSentByApi
+  chatId: undefined
+  remoteJid: undefined
+  fromMe: true
+  senderName: Teste
+  type: undefined
+  content: {}
+
+Msg 2:
+  keys: buttonOrListid, chatid, content, convertOptions, edited, error, fileURL, fromMe, id, isGroup, messageTimestamp, messageType, messageid, owner, quoted, reaction, sendFunction, sendPayload, send_folder_id, sender, senderName, source, status, text, track_id, track_source, vote, wasSentByApi
+  chatId: undefined
+  remoteJid: undefined
+  fromMe: true
+  senderName: Teste
+  type: undefined
+  content: 👍 Anotado, Cliente!
+✔ 1x Dogão
+✔ 1x Tridogão
+✔ 2x X-Pança d
+
+Msg 3:
+  keys: buttonOrListid, chatid, content, convertOptions, edited, error, fileURL, fromMe, id, isGroup, messageTimestamp, messageType, messageid, owner, quoted, reaction, sendFunction, sendPayload, send_folder_id, sender, senderName, source, status, text, track_id, track_source, vote, wasSentByApi
+  chatId: undefined
+  remoteJid: undefined
+  fromMe: true
+  senderName: Teste
+  type: undefined
+  content: Anotado, Cliente! Já guardei seu nome aqui. 😊
+
+👍 Anotado, 
+
+Msg 4:
+  keys: buttonOrListid, chatid, content, convertOptions, edited, error, fileURL, fromMe, id, isGroup, messageTimestamp, messageType, messageid, owner, quoted, reaction, send_folder_id, sender, senderName, source, status, text, track_id, track_source, vote
+  chatId: undefined
+  remoteJid: undefined
+  fromMe: false
+  senderName: Saymithon
+  type: undefined
+  content: 1 dogao 
+1 tridogao
+2 x pança de mamute
+1 coca de 2 litro
+
+Msg 5:
+  keys: buttonOrListid, chatid, content, convertOptions, edited, error, fileURL, fromMe, id, isGroup, messageTimestamp, messageType, messageid, owner, quoted, reaction, send_folder_id, sender, senderName, source, status, text, track_id, track_source, vote
+  chatId: undefined
+  remoteJid: undefined
+  fromMe: false
+  senderName: Saymithon
+  type: undefined
+  content: 1 dogao 
+1 tridogao
+2 x pança de mamute
+
+Msg 6:
+  keys: buttonOrListid, chatid, content, convertOptions, edited, error, fileURL, fromMe, id, isGroup, messageTimestamp, messageType, messageid, owner, quoted, reaction, sendFunction, sendPayload, send_folder_id, sender, senderName, source, status, text, track_id, track_source, vote, wasSentByApi
+  chatId: undefined
+  remoteJid: undefined
+  fromMe: true
+  senderName: Teste
+  type: undefined
+  content: Olá! Seja bem-vindo ao Liderança! 😊
+Qual é o seu nome?
+
+Msg 7:
+  keys: buttonOrListid, chatid, content, convertOptions, edited, error, fileURL, fromMe, id, isGroup, messageTimestamp, messageType, messageid, owner, quoted, reaction, send_folder_id, sender, senderName, source, status, text, track_id, track_source, vote
+  chatId: undefined
+  remoteJid: undefined
+  fromMe: false
+  senderName: Saymithon
+  type: undefined
+  content: Olá, estou na mesa 1 no Liderança Bar e Lanchonete
+
+=== FILTRO CHAT 1: Minha Claro (jid=5511999910621@s.whatsapp.net, id=r93fc75627aa0d8) ===
+Messages with JID filter: 100
+  First msg chatId: undefined
+  First msg remoteJid: undefined
+  First msg key: undefined
+
+=== FILTRO CHAT 2: Saymithon (jid=553398688577@s.whatsapp.net, id=r62792df0c05acf) ===
+Messages with JID filter: 100
+  First msg chatId: undefined
+  First msg remoteJid: undefined
+  First msg key: undefined

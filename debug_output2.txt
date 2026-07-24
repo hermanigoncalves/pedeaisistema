@@ -1,0 +1,270 @@
+Total: 100
+
+--- Msg 0 ---
+  chatid (lower): 5511999910621@s.whatsapp.net
+  chatId (camel): undefined
+  sender: 182364311425240@lid
+  senderName: 
+  messageid: 3BA356A70D4D75D330
+  id: 553384653307:3BA356A70D4D75D330
+  owner: 553384653307
+  fromMe: false
+  isGroup: false
+  messageType: TemplateMessage
+  messageTimestamp: 1774621605000
+  source: desktop
+  text: Olá, eu sou o Assistente virtual da Claro 😊!
+Esse é o nosso
+  content: {"Format":null,"hydratedTemplate":{"Title":{"DocumentMessage
+
+--- Msg 1 ---
+  chatid (lower): Não informado
+  chatId (camel): undefined
+  sender: 553384653307@s.whatsapp.net
+  senderName: Teste
+  messageid: 3EB002C3CDB903DEE1D285
+  id: 553384653307:3EB002C3CDB903DEE1D285
+  owner: 553384653307
+  fromMe: true
+  isGroup: false
+  messageType: Queued
+  messageTimestamp: 1774574271734
+  source: 
+  text: Olá, Cliente! 👋
+
+Sua conta da *Mesa 1* foi fechada com suce
+  content: {}
+
+--- Msg 2 ---
+  chatid (lower): 553398688577@s.whatsapp.net
+  chatId (camel): undefined
+  sender: 553384653307@s.whatsapp.net
+  senderName: Teste
+  messageid: 3EB0731B20715BC02D6C22
+  id: 553384653307:3EB0731B20715BC02D6C22
+  owner: 553384653307
+  fromMe: true
+  isGroup: false
+  messageType: ExtendedTextMessage
+  messageTimestamp: 1774569479060
+  source: web
+  text: 👍 Anotado, Cliente!
+✔ 1x Dogão
+✔ 1x Tridogão
+✔ 2x X-Pança d
+  content: {"contextInfo":{},"text":"👍 Anotado, Cliente!\n✔ 1x Dogão\n
+
+--- Msg 3 ---
+  chatid (lower): 553398688577@s.whatsapp.net
+  chatId (camel): undefined
+  sender: 553384653307@s.whatsapp.net
+  senderName: Teste
+  messageid: 3EB08F6ED64584E6E30360
+  id: 553384653307:3EB08F6ED64584E6E30360
+  owner: 553384653307
+  fromMe: true
+  isGroup: false
+  messageType: ExtendedTextMessage
+  messageTimestamp: 1774569468129
+  source: web
+  text: Anotado, Cliente! Já guardei seu nome aqui. 😊
+
+👍 Anotado, 
+  content: {"contextInfo":{},"text":"Anotado, Cliente! Já guardei seu n
+
+--- Msg 4 ---
+  chatid (lower): 553398688577@s.whatsapp.net
+  chatId (camel): undefined
+  sender: 87905666130173@lid
+  senderName: Saymithon
+  messageid: 3A3F6741A567E593A392
+  id: 553384653307:3A3F6741A567E593A392
+  owner: 553384653307
+  fromMe: false
+  isGroup: false
+  messageType: Conversation
+  messageTimestamp: 1774569455000
+  source: ios
+  text: 1 dogao 
+1 tridogao
+2 x pança de mamute
+1 coca de 2 litro
+  content: {"text":"1 dogao \n1 tridogao\n2 x pança de mamute\n1 coca d
+
+--- Msg 5 ---
+  chatid (lower): 553398688577@s.whatsapp.net
+  chatId (camel): undefined
+  sender: 87905666130173@lid
+  senderName: Saymithon
+  messageid: 3AC90BA6FDC98DE5D0F7
+  id: 553384653307:3AC90BA6FDC98DE5D0F7
+  owner: 553384653307
+  fromMe: false
+  isGroup: false
+  messageType: Conversation
+  messageTimestamp: 1774569436000
+  source: ios
+  text: 1 dogao 
+1 tridogao
+2 x pança de mamute
+  content: {"text":"1 dogao \n1 tridogao\n2 x pança de mamute"}
+
+--- Msg 6 ---
+  chatid (lower): 553398688577@s.whatsapp.net
+  chatId (camel): undefined
+  sender: 553384653307@s.whatsapp.net
+  senderName: Teste
+  messageid: 3EB012780247F9CD88424F
+  id: 553384653307:3EB012780247F9CD88424F
+  owner: 553384653307
+  fromMe: true
+  isGroup: false
+  messageType: ExtendedTextMessage
+  messageTimestamp: 1774569337283
+  source: web
+  text: Olá! Seja bem-vindo ao Liderança! 😊
+Qual é o seu nome?
+  content: {"contextInfo":{},"text":"Olá! Seja bem-vindo ao Liderança! 
+
+--- Msg 7 ---
+  chatid (lower): 553398688577@s.whatsapp.net
+  chatId (camel): undefined
+  sender: 87905666130173@lid
+  senderName: Saymithon
+  messageid: 3AE2C0B60C7C3A5A1B67
+  id: 553384653307:3AE2C0B60C7C3A5A1B67
+  owner: 553384653307
+  fromMe: false
+  isGroup: false
+  messageType: Conversation
+  messageTimestamp: 1774569324000
+  source: ios
+  text: Olá, estou na mesa 1 no Liderança Bar e Lanchonete
+  content: {"text":"Olá, estou na mesa 1 no Liderança Bar e Lanchonete"
+
+--- Msg 8 ---
+  chatid (lower): Não informado
+  chatId (camel): undefined
+  sender: 553384653307@s.whatsapp.net
+  senderName: Teste
+  messageid: 3EB09C18B4EC1239467521
+  id: 553384653307:3EB09C18B4EC1239467521
+  owner: 553384653307
+  fromMe: true
+  isGroup: false
+  messageType: Queued
+  messageTimestamp: 1774482192557
+  source: 
+  text: Olá, Cliente! 👋
+
+Sua conta da *Mesa 8* foi fechada com suce
+  content: {}
+
+--- Msg 9 ---
+  chatid (lower): 553384280306@s.whatsapp.net
+  chatId (camel): undefined
+  sender: 553384653307@s.whatsapp.net
+  senderName: Teste
+  messageid: 3EB08A62AF72D3F31BA8F9
+  id: 553384653307:3EB08A62AF72D3F31BA8F9
+  owner: 553384653307
+  fromMe: true
+  isGroup: false
+  messageType: ExtendedTextMessage
+  messageTimestamp: 1774479661620
+  source: web
+  text: 👍 Anotado, Cliente!
+✔ 1x Refrigerante 2L (Coca Cola ou Fant
+  content: {"contextInfo":{},"text":"👍 Anotado, Cliente!\n✔ 1x Refrige
+
+--- Msg 10 ---
+  chatid (lower): 553384280306@s.whatsapp.net
+  chatId (camel): undefined
+  sender: 49323421261957@lid
+  senderName: Isaque
+  messageid: AC390D6B4DD2F1C9864A20094FB65C18
+  id: 553384653307:AC390D6B4DD2F1C9864A20094FB65C18
+  owner: 553384653307
+  fromMe: false
+  isGroup: false
+  messageType: Conversation
+  messageTimestamp: 1774479637000
+  source: android
+  text: 4
+  content: {"text":"4"}
+
+--- Msg 11 ---
+  chatid (lower): 553384280306@s.whatsapp.net
+  chatId (camel): undefined
+  sender: 553384653307@s.whatsapp.net
+  senderName: Teste
+  messageid: 3EB0F5C3957EB5D92FB9EE
+  id: 553384653307:3EB0F5C3957EB5D92FB9EE
+  owner: 553384653307
+  fromMe: true
+  isGroup: false
+  messageType: ExtendedTextMessage
+  messageTimestamp: 1774479619510
+  source: web
+  text: Quantos copos de guaraná 2 litros você gostaria, Cliente? As
+  content: {"contextInfo":{},"text":"Quantos copos de guaraná 2 litros 
+
+--- Msg 12 ---
+  chatid (lower): 553384280306@s.whatsapp.net
+  chatId (camel): undefined
+  sender: 49323421261957@lid
+  senderName: Isaque
+  messageid: AC9AE539BA6AF76E8CE4430AB70C4759
+  id: 553384653307:AC9AE539BA6AF76E8CE4430AB70C4759
+  owner: 553384653307
+  fromMe: false
+  isGroup: false
+  messageType: Conversation
+  messageTimestamp: 1774479602000
+  source: android
+  text: E 1 guaraná de 2 litros
+  content: {"text":"E 1 guaraná de 2 litros"}
+
+--- Msg 13 ---
+  chatid (lower): 553384280306@s.whatsapp.net
+  chatId (camel): undefined
+  sender: 553384653307@s.whatsapp.net
+  senderName: Teste
+  messageid: 3EB0D0867AC277C3C165F1
+  id: 553384653307:3EB0D0867AC277C3C165F1
+  owner: 553384653307
+  fromMe: true
+  isGroup: false
+  messageType: ExtendedTextMessage
+  messageTimestamp: 1774479574628
+  source: web
+  text: 👍 Anotado, Cliente!
+✔ 2x Tradicional (sem pimenta)
+Já estou
+  content: {"contextInfo":{},"text":"👍 Anotado, Cliente!\n✔ 2x Tradici
+
+--- Msg 14 ---
+  chatid (lower): 553384280306@s.whatsapp.net
+  chatId (camel): undefined
+  sender: 49323421261957@lid
+  senderName: Isaque
+  messageid: ACBB93950D547FE6FE3D7A99894A4134
+  id: 553384653307:ACBB93950D547FE6FE3D7A99894A4134
+  owner: 553384653307
+  fromMe: false
+  isGroup: false
+  messageType: Conversation
+  messageTimestamp: 1774479556000
+  source: android
+  text: E um x pança de mamute
+  content: {"text":"E um x pança de mamute"}
+
+
+=== TESTE FILTRO chatid MINUSCULO ===
+Messages filtro chatid (Saymithon): 100
+  Primeiro: sender=182364311425240@lid chatid=5511999910621@s.whatsapp.net senderName=
+Messages filtro chatid (Isaque): 100
+  Primeiro: sender=182364311425240@lid chatid=5511999910621@s.whatsapp.net senderName=
+
+=== TESTE FILTRO por sender ===
+Messages filtro sender (Saymithon): 100

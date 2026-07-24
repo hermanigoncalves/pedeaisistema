@@ -1,0 +1,35 @@
+SUPABASE_URL=https://SEU_PROJETO.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+# ID do restaurante (coluna id da tabela Restaurantes)
+RESTAURANTE_ID=a976db0c-c1df-4b21-a836-3671f1a5bba9
+
+# [OPCIONAL] Nome do restaurante (carregado automaticamente do banco de dados; serve como fallback)
+RESTAURANTE_NOME=San Pio
+
+# [OPCIONAL] Taxa de serviço em % (carregada automaticamente do banco de dados; serve como fallback)
+SERVICE_FEE=10
+
+# ─── IMPRESSORAS ───────────────────────────────────────────────────────────────
+# Você pode configurar até 3 impressoras: cozinha, bar e recibo
+# Deixe em branco as que não usar
+
+# Impressora da COZINHA
+# Tipo: tcp (rede/IP) ou usb
+PRINTER_KITCHEN_TYPE=tcp
+PRINTER_KITCHEN_HOST=192.168.1.100
+PRINTER_KITCHEN_PORT=9100
+# Se for USB no Windows, use: PRINTER_KITCHEN_USB=\\.\USB001  ou o nome do Windows (ex: "Epson TM-T20")
+PRINTER_KITCHEN_USB=
+
+# Impressora do BAR
+PRINTER_BAR_TYPE=tcp
+PRINTER_BAR_HOST=192.168.1.101
+PRINTER_BAR_PORT=9100
+PRINTER_BAR_USB=
+
+# Impressora de RECIBO (caixa / fechamento de conta)
+PRINTER_RECEIPT_TYPE=tcp
+PRINTER_RECEIPT_HOST=192.168.1.102
+PRINTER_RECEIPT_PORT=9100
+PRINTER_RECEIPT_USB=

@@ -1,0 +1,33 @@
+{
+  "name": "pedeai-backend",
+  "version": "1.0.0",
+  "description": "Backend PedeAi - Garçom Digital via WhatsApp",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node22 --outdir=dist --packages=external --format=cjs",
+    "start": "node dist/index.js",
+    "type-check": "node --max-old-space-size=4096 node_modules/typescript/bin/tsc --noEmit"
+  },
+  "dependencies": {
+    "@langchain/core": "^0.3.0",
+    "@langchain/openai": "^0.3.0",
+    "@supabase/supabase-js": "^2.49.0",
+    "axios": "^1.7.0",
+    "dotenv": "^16.4.0",
+    "fastify": "^5.2.0",
+    "@fastify/cors": "^10.0.0",
+    "ioredis": "^5.4.0",
+    "langchain": "^0.3.0",
+    "node-cron": "^3.0.3",
+    "openai": "^4.70.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/node-cron": "^3.0.11",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

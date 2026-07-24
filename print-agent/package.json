@@ -1,0 +1,23 @@
+{
+  "name": "pedeai-print-agent",
+  "version": "1.0.0",
+  "description": "Agente de impressão local para o PedeAí — conecta ao Supabase Realtime e imprime pedidos automaticamente em impressoras USB ou de rede.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "compile": "pkg index.js --targets node18-win-x64 --output pedeai-printer.exe",
+    "test-connection": "node test_printer.js",
+    "compile-test": "pkg test_printer.js --targets node18-win-x64 --output pedeai-test-printer.exe"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "dotenv": "^16.4.5",
+    "node-thermal-printer": "^4.4.0",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
+  },
+  "bin": "index.js"
+}

@@ -1,0 +1,122 @@
+{
+  "name": "Conta Fechada (Sistema)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "Envia-conta",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "7a0628dd-47b0-47b1-a24f-75da9d30a9f3",
+      "name": "Webhook",
+      "webhookId": "6972f4bf-8591-4b14-ab0b-a285a620eeda"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://scaleyia.uazapi.com/send/text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "=ace7fbbf-ba56-41df-89f4-fd1e2c92765d"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $json.body.telefone }}"
+            },
+            {
+              "name": "text",
+              "value": "=Olá, {{ $json.body.nome }}! 👋\n\nSua conta da *Mesa {{ $json.body.numero_mesa }}* foi fechada com sucesso. \nEsperamos que sua experiência tenha sido incrível! 🥂\n\n---\n📋 *RESUMO DO CONSUMO*\n{{ $json.body.itens }}\n\n---\n💰 *DETALHES DA CONTA*\nSubtotal: R$ {{ $json.body.subtotal }}\nTaxa de Serviço: R$ {{ $json.body.taxa }}\n*Total Final: R$ {{ $json.body.total }}*\n\nAgradecemos a preferência e esperamos te ver em breve! \nTenha um excelente dia! 😊✨\n"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "95f9bf7b-a074-4b10-8585-f09d296a0059",
+      "name": "Responde"
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n-n8n.zb8ckr.easypanel.host",
+            "user-agent": "node",
+            "content-length": "190",
+            "accept": "*/*",
+            "accept-encoding": "br, gzip, deflate",
+            "accept-language": "*",
+            "content-type": "application/json",
+            "sec-fetch-mode": "cors",
+            "x-forwarded-for": "45.167.184.222",
+            "x-forwarded-host": "n8n-n8n.zb8ckr.easypanel.host",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "fac9ab0540b0",
+            "x-real-ip": "45.167.184.222"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "telefone": "31999999999",
+            "nome": "Teste de Integração (Antigravity)",
+            "numero_mesa": 99,
+            "itens": "1x Suco de Laranja, 1x Porção de Batatas",
+            "subtotal": "25.00",
+            "taxa": "2.50",
+            "total": "27.50"
+          },
+          "webhookUrl": "https://n8n-n8n.zb8ckr.easypanel.host/webhook/Envia-conta",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Responde",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "versionId": "0cfe05e5-70be-4e02-a9c9-97422348ad05",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "09b0a30875672d09848a21742058c8773cc6467823980fb35d4eeff284d9d377"
+  },
+  "id": "L8WlX0MT76DgmEtL",
+  "tags": []
+}

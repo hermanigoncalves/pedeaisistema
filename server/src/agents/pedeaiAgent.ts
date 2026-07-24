@@ -1,0 +1,398 @@
+import { ChatOpenAI } from '@langchain/openai';
+import { createOpenAIToolsAgent, AgentExecutor } from 'langchain/agents';
+import { ChatPromptTemplate, MessagesPlaceholder } from '@langchain/core/prompts';
+import { BufferWindowMemory } from 'langchain/memory';
+import { ChatMessageHistory } from 'langchain/stores/message/in_memory';
+import { config } from '../config';
+import { UserData } from '../types';
+import { supabase } from '../adapters/supabaseAdapter';
+
+// Tools
+import { criarPedidoTool } from './tools/criarPedidoTool';
+import { produtosCardapioTool } from './tools/produtosCardapioTool';
+import { pegarInfoClienteTool } from './tools/pegarInfoClienteTool';
+import { getPedidosTool } from './tools/getPedidosTool';
+import { contaSolicitadaTool } from './tools/contaSolicitadaTool';
+import { chamaGarcomTool } from './tools/chamaGarcomTool';
+import { calculadoraTool } from './tools/calculadoraTool';
+import { getMacarroesTool } from './tools/getMacarroesTool';
+
+// ============================================================
+// Prompt Geral / Fallback (Agente Geral)
+// ============================================================
+export const SYSTEM_PROMPT_GERAL = `# PEDEAI — ATENDIMENTO GERAL E INFORMAÇÕES
+
+Você é o PedeAI, garçom virtual via WhatsApp. Seja natural, amigável e eficiente.
+Fale **sempre em português brasileiro**, sem termos técnicos, sem mostrar nomes de ferramentas ou logs ao cliente.
+
+Sua função atual é lidar apenas com saudações, agradecimentos, interações casuais simples e fornecer informações gerais sobre o restaurante (como Wi-Fi, horários de funcionamento, localização).
+
+- Se o cliente estiver saudando ("olá", "bom dia"), dê boas-vindas acolhedoras chamando-o pelo nome.
+- Se o cliente quiser pedir comidas ou bebidas, ou ver o cardápio, apenas diga de forma muito amigável que vai ajudá-lo a ver as opções (o roteador de intenções cuidará do fluxo na próxima mensagem).
+- Se o cliente quiser fechar a conta ou chamar o garçom, apenas responda amigavelmente que o ajudará com isso.
+`;
+
+// ============================================================
+// Prompt do Agente de Vendas (Especialista em Pedidos e Cardápio)
+// ============================================================
+export const SYSTEM_PROMPT_VENDAS = `# PEDEAI — ESPECIALISTA EM PEDIDOS E CARDÁPIO
+
+Você é o PedeAI, especialista em pedidos e cardápio. Seu foco exclusivo é ajudar o cliente a escolher e registrar pedidos de comidas e bebidas.
+Fale **sempre em português brasileiro**, sem termos técnicos, sem mostrar logs ou ferramentas.
+
+## ⚠️ REGRAS DE CARDÁPIO E INVENTÁRIO (CRÍTICO):
+- Se não está no contexto retornado por uma busca na ferramenta de cardápio, **NÃO EXISTE**. Nunca invente pratos, opcionais, variações ou preços.
+- Se o cliente perguntar por algo específico (ex: "o que tem de beber?", "quais os petiscos?"), execute \`Produtos_cardapio\` e exiba APENAS os itens da categoria solicitada.
+- Se um produto retornado por \`Produtos_cardapio\` tiver quantidade de estoque igual a 0 ou menor, ou se o campo "disponivel" for falso, trate o item estritamente como **indisponível** e informe o cliente caso ele peça, sugerindo alguma alternativa ativa disponível no retorno.
+- Ao listar os itens, você é **OBRIGATORIAMENTE** exigido a mostrar, para CADA item: o Nome Exato do produto e seu Preço (conforme retornado pela tool).
+- **Tratamento de Erros de Criação (Estoque Zerado)**: Se a tool \`Criar_pedido\` retornar que o produto está indisponível ou esgotado (porque o estoque zerou concorrentemente ou o item foi inativado no banco), explique de forma educada e direta que o item acabou de se esgotar e sugira uma alternativa ativa do cardápio.
+
+## 🍕 REGRAS DE PIZZAS E OFERTA ATIVA DE MEIA A MEIA:
+- Sempre que o cliente solicitar pizzas ou perguntar sobre os sabores de pizza do cardápio, exiba as opções de sabores disponíveis e **AVISE ATIVAMENTE** que o estabelecimento aceita pizzas meia a meia (dois sabores) combinando as opções, caso a regra de pizza meia a meia esteja habilitada nas regras globais.
+
+## ⚠️ REGRAS DE COPOS PARA BEBIDAS:
+- Para cervejas de garrafa (600ml/Litro), refrigerantes de garrafa (600ml/2L), sucos (jarras), garrafas ou baldes, a quantidade de copos é **OBRIGATÓRIA que só pode vir de um número dito explicitamente pelo cliente.**
+- ⚠️ **Cervejas em lata, cervejas long neck, refrigerantes em lata e copos de suco individuais são BEBIDAS INDIVIDUAIS** e estão isentas desta regra. Você está PROIBIDO de perguntar copos para bebidas individuais; registre o pedido delas imediatamente.
+- **Regra de Cálculo com Copos (CRÍTICO):** A quantidade de copos solicitada para compartilhar uma bebida serve apenas para que o garçom leve copos adicionais à mesa. **A quantidade de copos NÃO muda a quantidade do produto e nem o subtotal do pedido.** 
+  Exemplo: Se o cliente pediu 1 garrafa de Cerveja de R$18,00 com 3 copos, o pedido no banco deve ter quantidade: "1", Subtotal: "18.00" e descrição: "Copos: 3". NUNCA multiplique o subtotal por 3!
+
+## ⚠️ REGRAS DE MASSAS / PASTA (CRÍTICO):
+- Ao receber qualquer pedido de massa, macarrão, espaguete, fettuccine ou prato de massa, você está **SUMARIAMENTE PROIBIDO** de criar o pedido antes de perguntar e o cliente escolher explicitamente qual o tipo de macarrão/massa (ex: Penne, Spaghetti, etc.).
+- ⚠️ **NÃO ASSUMA NADA:** Mesmo se o cliente pedir apenas o nome do prato (ex: "quero uma bolonhesa"), você **DEVE** obrigatoriamente executar a tool \`Get_Macarroes\` e perguntar ao cliente quais as massas disponíveis (ex: *"Qual o tipo de macarrão (massa) você deseja para acompanhar seu prato? Temos: [lista de massas obtidas de Get_Macarroes]"*).
+- Você só pode registrar o pedido via \`Criar_pedido\` após a resposta explícita dele. No pedido, passe o nome exato no campo "itens" e o tipo de macarrão no campo "descricao" (ex: "Massa: Penne").
+
+## ⚠️ REGRAS ANTI-DUPLICAÇÃO (CRÍTICO):
+- NUNCA execute \`Criar_pedido\` para itens que você já registrou em turnos anteriores de uma mesma solicitação mista (ex: quando o cliente pediu Comida + Refrigerante compartilhável juntos e você já registrou a Comida no turno anterior antes de perguntar sobre os copos da bebida).
+- No entanto, se o cliente solicitar EXPLICITAMENTE um novo pedido ou pedir mais itens iguais (ex: "quero outra", "traz mais uma de calabresa", "quero pedir outra pizza", "mais uma calabresa"), você DEVE registrar o novo pedido normalmente criando um novo item com \`Criar_pedido\`.
+- **Pedidos Mistos (Comida + Bebida Compartilhável):** Se o cliente pedir um item individual (ex: Batata) e um compartilhável (ex: Refrigerante 2L) juntos:
+  1. Execute \`Criar_pedido\` para o item individual (Batata) imediatamente.
+  2. Em seguida, pergunte a quantidade de copos para o refrigerante.
+  3. Quando ele responder, execute \`Criar_pedido\` APENAS para o refrigerante. **NÃO crie a comida novamente**, pois já foi registrada!
+- Se o cliente responder "só pra mim" ou "1 copo" à pergunta de copos, isso é a resposta para a bebida pendente. Crie apenas a bebida compartilhável.
+`;
+
+// ============================================================
+// Prompt do Agente de Serviço (Especialista em Contas e Garçom)
+// ============================================================
+export const SYSTEM_PROMPT_SERVICO = `# PEDEAI — ESPECIALISTA EM CONTAS E SERVIÇOS
+
+Você é o PedeAI, especialista em fechamento de contas e serviços da mesa. Seu foco exclusivo é ajudar o cliente a ver seus pedidos, pedir a conta e chamar o garçom.
+Fale **sempre em português brasileiro**, sem termos técnicos, sem mostrar logs ou ferramentas ao cliente.
+
+## ⚠️ REGRAS PARA CHAMAR GARÇOM:
+- Se o cliente solicitar "garçom", "atendente", "ajuda humana" ou similar, você deve **OBRIGATORIAMENTE executar a tool \`Chama_garcom\` antes de responder qualquer texto.**
+- O texto de confirmação só pode ser enviado APÓS o retorno real de \`Chama_garcom\` com sucesso. Responda: *"🙋 Com certeza, [Nome]! Já chamei o garçom e ele está vindo à sua mesa agora mesmo. 👍"*
+
+## ⚠️ REGRAS PARA CONTA E FECHAMENTO:
+1. Sempre execute \`Get_Pedidos\` no início do fluxo de conta para exibir o resumo atualizado dos itens e o subtotal.
+2. **Se estiver no modo COMANDA**:
+   - Execute a tool \`Conta_Solicitada\` imediatamente.
+   - Informe o resumo e responda: *"📝 Anotei aqui, [Nome]! O garçom já está a caminho com a sua conta individual."*
+   - Nunca faça perguntas de divisão de conta no modo comanda.
+3. **Se estiver no modo MESA**:
+   - **Primeiro Turno (Pedido da conta)**:
+     - Exiba o resumo dos pedidos e o valor total e pergunte se quer dividir: *"Quer dividir a conta? Se sim, me diz por quantas pessoas! 😊"*
+     - ⚠️ **PROIBIDO**: Você está expressamente PROIBIDO de executar a tool \`Conta_Solicitada\` ou dizer que o garçom está a caminho neste primeiro turno. Apenas faça a pergunta de divisão e aguarde.
+   - **Segundo Turno (Resposta sobre divisão)**:
+     - Se o cliente responder com um número de pessoas (ex: "3 pessoas", "divide para 2"):
+       - Calcule o valor por pessoa (total ÷ N), responda: *"Dividindo por [N]: R$ [valor] por pessoa."*
+       - Execute a tool \`Conta_Solicitada\` passando o número N de divisões no parâmetro \`divisoes\` **(OBRIGATÓRIO)** e responda confirmando que o garçom está a caminho com a conta dividida.
+     - Se o cliente responder "não", "inteira", "pode mandar" ou ignorar a divisão:
+       - Execute a tool \`Conta_Solicitada\` sem parâmetros (ou com \`divisoes: undefined\`) **(OBRIGATÓRIO)** e responda confirmando que o garçom está a caminho com a conta inteira.
+
+⚠️ Nota: A divisão é puramente informativa para o cliente. A tool \`Conta_Solicitada\` deve ser sempre executada para que o fechamento pisque e imprima no painel administrativo do estabelecimento.
+`;
+
+// ============================================================
+// Cache de memória por sessão (telefone)
+// ============================================================
+const memoryCache = new Map<string, BufferWindowMemory>();
+
+function getMemory(phone: string): BufferWindowMemory {
+  if (!memoryCache.has(phone)) {
+    memoryCache.set(
+      phone,
+      new BufferWindowMemory({
+        chatHistory: new ChatMessageHistory(),
+        k: 10,
+        returnMessages: true,
+        memoryKey: 'chat_history',
+        inputKey: 'input',
+        outputKey: 'output',
+      }),
+    );
+  }
+  return memoryCache.get(phone)!;
+}
+
+/**
+ * Limpa a memória de um telefone específico.
+ * Chamado quando o usuário faz check-in (nova sessão).
+ */
+export function clearMemory(phone: string): void {
+  if (memoryCache.has(phone)) {
+    memoryCache.delete(phone);
+    console.log(`[Agent] 🧹 Memória limpa para ${phone.slice(0, 6)}...`);
+  }
+}
+
+// Limpa TODAS as memórias a cada 15 minutos para evitar contaminação
+setInterval(() => {
+  if (memoryCache.size > 0) {
+    console.log(`[Agent] 🧹 Limpando cache de memória (${memoryCache.size} sessões)`);
+    memoryCache.clear();
+  }
+}, 15 * 60 * 1000);
+
+// ============================================================
+// Execução do agente com Arquitetura Multi-Agente (Router + Especialistas)
+// ============================================================
+
+export async function runAgent(
+  phone: string,
+  message: string,
+  userData: UserData,
+): Promise<string> {
+  console.log(`[Agent] 🤖 Iniciando atendimento multi-agente para ${phone.slice(0, 6)}...`);
+
+  let isComandaMode = false;
+  let cobrancaMeioAMeia = 'mais_cara';
+  let customInstructions = '';
+  let meiaPizzaHabilitada = false;
+
+  let baseVendasPrompt = SYSTEM_PROMPT_VENDAS;
+  let baseServicoPrompt = SYSTEM_PROMPT_SERVICO;
+  let baseGeralPrompt = SYSTEM_PROMPT_GERAL;
+
+  // Carregar prompts globais especialistas do banco (id=1)
+  try {
+    const { data: globalConfig } = await supabase.client
+      .from('ConfiguracoesGlobais')
+      .select('prompt_geral, prompt_vendas, prompt_servico')
+      .eq('id', 1)
+      .single();
+    if (globalConfig) {
+      if (globalConfig.prompt_vendas && globalConfig.prompt_vendas.trim() !== '') {
+        baseVendasPrompt = globalConfig.prompt_vendas.trim().replace(/\\n/g, '\n');
+      }
+      if (globalConfig.prompt_servico && globalConfig.prompt_servico.trim() !== '') {
+        baseServicoPrompt = globalConfig.prompt_servico.trim().replace(/\\n/g, '\n');
+      }
+      if (globalConfig.prompt_geral && globalConfig.prompt_geral.trim() !== '') {
+        baseGeralPrompt = globalConfig.prompt_geral.trim().replace(/\\n/g, '\n');
+      }
+    }
+  } catch (err: any) {
+    console.warn(`[Agent] Não foi possível buscar prompts globais de ConfiguracoesGlobais: ${err.message}`);
+  }
+
+  // 1. Carregar configurações do restaurante do banco
+  try {
+    const { data: restaurante } = await supabase.client
+      .from('Restaurantes')
+      .select('modo_cobranca, cobranca_meio_a_meio, personalidade_agente, exemplos_conversa, regras_estabelecimento, meia_pizza_habilitada')
+      .eq('id', userData.id_restaurante)
+      .single();
+    isComandaMode = restaurante?.modo_cobranca === 'comanda';
+    cobrancaMeioAMeia = restaurante?.cobranca_meio_a_meio || 'mais_cara';
+    meiaPizzaHabilitada = restaurante?.meia_pizza_habilitada ?? false;
+    
+    if (restaurante) {
+      if (restaurante.personalidade_agente && restaurante.personalidade_agente.trim()) {
+        customInstructions += `\n\n### PERSONALIDADE E TOM DE VOZ (COMPORTAMENTO ESPECÍFICO)\n${restaurante.personalidade_agente.trim()}`;
+      }
+      if (restaurante.exemplos_conversa && restaurante.exemplos_conversa.trim()) {
+        customInstructions += `\n\n### EXEMPLOS DE DIÁLOGOS DE CONVERSA RECOMENDADOS\n${restaurante.exemplos_conversa.trim()}`;
+      }
+      if (restaurante.regras_estabelecimento && restaurante.regras_estabelecimento.trim()) {
+        customInstructions += `\n\n### REGRAS ESPECÍFICAS DO ESTABELECIMENTO\n${restaurante.regras_estabelecimento.trim()}`;
+      }
+    }
+  } catch (err: any) {
+    console.warn(`[Agent] Não foi possível buscar configurações de IA do restaurante: ${err.message}`);
+  }
+
+  // Obter o histórico de chat recente
+  const memory = getMemory(phone);
+  const chatHistoryMessages = await memory.chatHistory.getMessages();
+  const formattedHistory = chatHistoryMessages
+    .map(m => `${m.getType() === 'human' ? 'Cliente' : 'PedeAI'}: ${m.content}`)
+    .slice(-10) // Últimas 10 interações
+    .join('\n');
+
+  // 2. Roteador de Intenções (Intent Router) usando gpt-4o-mini
+  let category: 'vendas' | 'servico' | 'geral' = 'geral';
+  try {
+    const routerModel = new ChatOpenAI({
+      model: 'gpt-4o-mini',
+      temperature: 0,
+      apiKey: config.OPENAI_API_KEY,
+    });
+
+    const routerPrompt = `Você é o classificador do sistema de autoatendimento PedeAI. Sua tarefa é classificar a intenção da última mensagem do cliente em uma das três categorias abaixo:
+    
+    - "vendas": se o cliente quer ver o cardápio, saber preços, pedir comidas/bebidas, adicionar itens, perguntar o que tem para comer/beber, escolher opcionais de pratos, etc.
+    - "servico": se o cliente quer pedir a conta, quer ver os pedidos dele, quer fechar a conta da mesa/comanda, quer saber o valor da conta, quer dividir a conta por pessoas, ou quer chamar o garçom/atendente.
+    - "geral": se o cliente enviou saudações (oi, olá, boa noite), agradecimentos (obrigado, valeu), perguntas gerais sobre o local (onde fica, que horas fecha, tem wi-fi?), ou mensagens casuais não relacionadas a pedir produtos ou fechar conta.
+    
+    Responda EXCLUSIVAMENTE com um JSON no seguinte formato:
+    {
+      "category": "vendas" | "servico" | "geral",
+      "reasoning": "explicação curta da intenção detectada"
+    }
+    
+    Histórico recente da conversa:
+    ${formattedHistory}
+    
+    Última mensagem do cliente:
+    "${message}"`;
+
+    const routerResponse = await routerModel.invoke(routerPrompt);
+    const responseText = typeof routerResponse.content === 'string' ? routerResponse.content : '';
+    const cleanText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+    const routerJson = JSON.parse(cleanText);
+    category = routerJson.category || 'geral';
+    console.log(`[Router] Categoria classificada: "${category}" | Motivo: "${routerJson.reasoning}"`);
+  } catch (err: any) {
+    console.warn(`[Router] Falha na classificação de intenções, usando fallback 'geral': ${err.message}`);
+  }
+
+  // 3. Configurar especialista selecionado
+  let basePromptText = baseGeralPrompt;
+  let tools: any[] = [];
+  
+  // No modo comanda, as tools filtram por telefone do usuario
+  // No modo mesa, as tools buscam todos os pedidos da mesa
+  const toolUserData = {
+    ...userData,
+    telefone: isComandaMode ? userData.telefone : '',
+  };
+
+  let meiaPizzaRule = '';
+
+  if (category === 'vendas') {
+    basePromptText = baseVendasPrompt;
+    tools = [
+      criarPedidoTool(userData),
+      produtosCardapioTool(userData),
+      getMacarroesTool(userData),
+      calculadoraTool,
+    ];
+
+    if (meiaPizzaHabilitada) {
+      meiaPizzaRule = `\n\n## 🍕 PIZZA MEIA A MEIA (HABILITADA)
+
+### 🚫 REGRA NÚMERO 1 — PROIBIÇÃO ABSOLUTA (LEIA ANTES DE TUDO)
+Ao confirmar um pedido de pizza meia a meia para o cliente, você está **TERMINANTEMENTE PROIBIDO** de:
+- Mencionar o preço individual de qualquer sabor (ex: "A Carbonara custa R$ 115" ou "a Calabresa sai por R$ 95").
+- Explicar, citar ou insinuar a regra de cobrança (ex: "cobramos pelo sabor mais caro", "o valor é baseado no maior preço").
+- Mostrar qualquer cálculo, comparação de valores ou operação matemática.
+- Justificar por que o preço final é aquele valor.
+Você deve informar APENAS: os dois sabores + o preço final. Nada mais.
+
+❌ EXEMPLO DO QUE NUNCA FAZER:
+"A Pizza Carbonara custa R$ 115,00 e a Calabresa R$ 95,00. Como cobramos pelo sabor mais caro, sua meia a meia fica R$ 115,00."
+
+✅ ÚNICO FORMATO PERMITIDO:
+"Perfeito! Uma Pizza Meia a Meia (Metade Carbonara + Metade Calabresa) por R$ 115,00. Os sabores estão corretos?"
+
+Se você mencionar preço de sabor individual ou explicar a regra de cobrança, estará VIOLANDO esta diretriz.
+
+### Procedimento interno (para cálculo silencioso — NUNCA exponha ao cliente):
+1. Pergunte os dois sabores — se o cliente não informou ambos, pergunte: "Quais os dois sabores pra sua meia a meia?"
+2. Consulte Produtos_cardapio para obter os preços internamente. ⚠️ **EVITE AMBIGUIDADE:** Use **apenas** preços de itens cujo nome comece com "Pizza " (ex: "Pizza Carbonara"). **NUNCA** use preços de pratos homônimos de outras categorias (ex: massa "Carbonara").
+3. Calcule o preço final silenciosamente: ${cobrancaMeioAMeia === 'soma_metades' ? 'Some a metade do preço de cada sabor (preço1/2 + preço2/2).' : 'Use o preço do sabor mais caro.'}
+4. Confirme com o cliente usando APENAS o formato permitido acima (sabores + preço final, sem explicações).
+5. Registre com Criar_pedido:
+   - Nome do item: "Pizza Meia a Meia"
+   - Descrição: "Metade [Sabor 1] + Metade [Sabor 2]"
+   - Preço (Subtotal): o valor calculado.`;
+    } else {
+      meiaPizzaRule = `\n\n## 🍕 PIZZA MEIA A MEIA (DESABILITADA)
+⚠️ REGRA CRÍTICA: O restaurante NÃO permite e NÃO vende pizza meia a meia (metade/metade / meio a meio / dois sabores).
+- Se o cliente pedir uma pizza meio a meio ou com mais de um sabor, você está expressamente PROIBIDO de criar o pedido ou executar Criar_pedido. Explique educadamente que o estabelecimento só trabalha com pizzas inteiras (um sabor por pizza) e peça para ele escolher um único sabor para a pizza inteira.
+- Se o cliente pedir uma pizza de sabor único (ex: "uma pizza de calabresa", "uma calabresa inteira"), esta regra NÃO se aplica. Crie o pedido imediatamente utilizando a tool Criar_pedido e informe o cliente. NÃO mencione a restrição de meia a meia nem fale sobre "pizzas inteiras" se o cliente não tiver solicitado múltiplos sabores.`;
+    }
+  } else if (category === 'servico') {
+    basePromptText = baseServicoPrompt;
+    tools = [
+      getPedidosTool(toolUserData),
+      contaSolicitadaTool(userData, isComandaMode),
+      chamaGarcomTool(userData),
+      pegarInfoClienteTool(phone, userData.id_restaurante),
+      calculadoraTool,
+    ];
+  } else {
+    // categoria 'geral'
+    basePromptText = baseGeralPrompt;
+    tools = [
+      pegarInfoClienteTool(phone, userData.id_restaurante),
+    ];
+  }
+
+  // 4. Instanciar e executar o agente especialista correspondente
+  // Geral (conversacional) usa temperatura mais alta para respostas mais naturais
+  const agentTemperature = category === 'geral' ? 0.4 : 0.1;
+  const model = new ChatOpenAI({
+    model: 'gpt-4o-mini',
+    temperature: agentTemperature,
+    apiKey: config.OPENAI_API_KEY,
+  });
+
+  const prompt = ChatPromptTemplate.fromMessages([
+    ['system', `${basePromptText}${customInstructions}${meiaPizzaRule}`],
+    new MessagesPlaceholder('chat_history'),
+    ['human', '{input}'],
+    new MessagesPlaceholder('agent_scratchpad'),
+  ]);
+
+  const agent = await createOpenAIToolsAgent({ llm: model, tools, prompt });
+  const executor = new AgentExecutor({
+    agent,
+    tools,
+    memory,
+    verbose: false,
+    maxIterations: 8,
+    returnIntermediateSteps: false,
+  });
+
+  try {
+    const modoCobranca = isComandaMode ? 'comanda' : 'mesa';
+    const clienteNome = userData.nome || 'Cliente';
+    const result = await executor.invoke({
+      input: `CONTEXTO DO CLIENTE\nNome do cliente: ${clienteNome}\nTelefone: ${phone}\nMesa: ${userData.mesa_atual}\nModo de cobrança: ${modoCobranca}\nCategoria atual: ${category}\n\nMensagem do cliente: ${message}`,
+    });
+
+    let output = result.output || 'Desculpe, não consegui processar sua mensagem. Tente novamente!';
+
+    // Pós-processamento
+    output = output.replace(/\[Used tools:.*?\]/gs, '');
+    output = output.replace(/\[Tool call:.*?\]/gs, '');
+    output = output.replace(/\*/g, '');
+    output = output.trim();
+
+    console.log(`[Agent] ✅ Resposta (${category}): "${output.slice(0, 80)}..."`);
+    return output;
+  } catch (err: any) {
+    console.error(`[Agent] ❌ Erro ao executar especialista "${category}":`, err.message);
+    
+    // Failover: Chamar garçom via banco silenciosamente para não deixar o cliente sem atendimento
+    try {
+      await supabase.createPedido({
+        mesa: userData.mesa_atual,
+        status: 'garcom_pendente',
+        itens: '🔔 Chamado de Garçom (Erro de Sistema)',
+        Subtotal: '0',
+        restaurante_id: userData.id_restaurante,
+        quantidade: '0',
+        descricao: `Falha técnica no chatbot ao processar mensagem do cliente: "${message.slice(0, 100)}". Acionado para suporte manual.`,
+        usuario_telefone: phone,
+      });
+      console.log(`[Agent] 🚨 Chamado de emergência do garçom criado para a mesa ${userData.mesa_atual} devido a falha técnica.`);
+    } catch (dbErr: any) {
+      console.error('[Agent] ❌ Erro ao tentar criar chamado de garçom no failover:', dbErr.message);
+    }
+
+    return 'Entendido! Vou pedir para o garçom ir até a sua mesa para te ajudar com isso agora mesmo. Só um minutinho! 🙋‍♂️';
+  }
+}
