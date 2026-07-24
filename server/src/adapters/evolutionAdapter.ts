@@ -63,7 +63,7 @@ class EvolutionAdapter {
    * Retorna o cliente Axios e o nome da instância configurados para o restaurante.
    * Se não houver configurações personalizadas, faz fallback para o .env global.
    */
-  private async getClientForRestaurante(restauranteId?: string | null): Promise<{
+  private async getClientForRestaurante(restauranteId?: string | null, isDelivery: boolean = false): Promise<{
     axiosClient: AxiosInstance;
     instanceName: string;
   }> {
@@ -74,19 +74,22 @@ class EvolutionAdapter {
 
     if (!restauranteId) return defaultResult;
 
-    // Valida UUID para evitar erros de banco
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(restauranteId)) return defaultResult;
 
     try {
       const restaurante = await supabase.getRestauranteById(restauranteId);
 
-      if (!restaurante?.evolution_instancia) return defaultResult;
+      const instName = isDelivery 
+        ? (restaurante?.evolution_instancia_delivery || restaurante?.evolution_instancia)
+        : restaurante?.evolution_instancia;
 
-      // Monta cliente customizado se o restaurante tiver credenciais próprias.
-      // Usa a mesma EVOLUTION_URL global se não houver URL própria.
+      if (!instName) return defaultResult;
+
       const baseURL = config.EVOLUTION_URL;
-      const apikey = restaurante.evolution_apikey || config.EVOLUTION_API_KEY;
+      const apikey = (isDelivery && restaurante?.evolution_apikey_delivery) 
+        ? restaurante.evolution_apikey_delivery 
+        : (restaurante?.evolution_apikey || config.EVOLUTION_API_KEY);
 
       const customClient = axios.create({
         baseURL,
@@ -99,13 +102,14 @@ class EvolutionAdapter {
 
       return {
         axiosClient: customClient,
-        instanceName: restaurante.evolution_instancia,
+        instanceName: instName,
       };
     } catch (err: any) {
       console.warn(`[Evolution Adapter] Erro ao buscar config do restaurante ${restauranteId}, usando fallback:`, err.message);
       return defaultResult;
     }
   }
+
 
   /**
    * Envia mensagem de texto via Evolution Go.
@@ -116,6 +120,7 @@ class EvolutionAdapter {
     restauranteIdOrNumber: string | null | undefined,
     numberOrText?: string,
     text?: string,
+    isDelivery: boolean = false,
   ): Promise<void> {
     let restauranteId: string | null | undefined;
     let number: string;
@@ -133,7 +138,8 @@ class EvolutionAdapter {
       messageText = numberOrText || '';
     }
 
-    const { axiosClient, instanceName } = await this.getClientForRestaurante(restauranteId);
+    const { axiosClient, instanceName } = await this.getClientForRestaurante(restauranteId, isDelivery);
+
 
     await withRetry(async () => {
       try {

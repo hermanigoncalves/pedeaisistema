@@ -222,9 +222,10 @@ async function handleWebhookRequest(request: any, reply: any, agentType: 'pedeai
 
       log.warn(`[PIPELINE] Resposta IA (${agentType}): "${agentResponse.slice(0, 80)}"`);
 
-      // 10. Enviar resposta via WhatsApp
+      // 10. Enviar resposta via WhatsApp pela instância do tipo de agente correspondente
+      const isDelivery = agentType === 'delivery';
       await sendTypingAndWait(restauranteId, phone, 1000);
-      await evolution.sendText(restauranteId, phone, agentResponse);
+      await evolution.sendText(restauranteId, phone, agentResponse, isDelivery);
 
       // 11. Salvar resposta da IA no Supabase
       if (userData.id_restaurante) {
