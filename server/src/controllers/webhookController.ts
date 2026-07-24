@@ -212,8 +212,18 @@ async function handleWebhookRequest(request: any, reply: any, agentType: 'pedeai
         }
       }
 
+      // 8.5 Trava de Segurança do Salão: Se for canal de Salão (pedeai) e NÃO tiver mesa ativa, NÃO responde!
+      if (agentType === 'pedeai') {
+        const mesaAtiva = userData.mesa_atual && userData.mesa_atual !== '0' && userData.mesa_atual !== '';
+        if (!mesaAtiva) {
+          log.warn({ phone, mesa: userData.mesa_atual }, '[PIPELINE] 🛑 Usuário sem mesa ativa no Salão. Ignorando resposta automática do robô de mesas.');
+          return;
+        }
+      }
+
       // 9. Executar o Agente IA correspondente (Salão vs Delivery)
       log.warn(`[PIPELINE] Executando agente IA (${agentType.toUpperCase()})...`);
+
       let agentResponse = '';
       if (agentType === 'delivery') {
         agentResponse = await runDeliveryAgent(phone, collectedMessage, userData);
