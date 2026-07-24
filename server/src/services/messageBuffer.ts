@@ -20,54 +20,48 @@ function getRedis(): Redis {
   return redis;
 }
 
-/**
- * Adiciona mensagem ao buffer do telefone.
- * Equivalente ao "Text Memory" / "Redis8" / "Redis3" do n8n.
- */
+// Memory fallback em caso de falha do Redis
+const memoryBuffers = new Map<string, string[]>();
+
 export async function pushToBuffer(phone: string, text: string): Promise<void> {
-  await getRedis().rpush(`buffer:${phone}`, text);
-  console.log(`[Buffer] PUSH ${phone.slice(0, 6)}... → "${text.slice(0, 50)}..."`);
-}
-
-/**
- * Aguarda o debounce e coleta todas as mensagens acumuladas.
- * 
- * Lógica do n8n reproduzida fielmente:
- * 1. GET estado antes
- * 2. WAIT 8 segundos
- * 3. GET estado depois
- * 4. Se mudou → descarta (outra execução cuida)
- * 5. Se igual → junta tudo, deleta, retorna
- * 
- * Retorna null se outra mensagem chegou durante o wait.
- */
-export async function waitAndCollect(phone: string): Promise<string | null> {
-  const r = getRedis();
-  const key = `buffer:${phone}`;
-
-  // 1. Captura estado ANTES
-  const before = await r.lrange(key, 0, -1);
-  console.log(`[Buffer] BEFORE ${phone.slice(0, 6)}...: [${before.length} msgs]`);
-
-  // 2. Espera debounce
-  await new Promise((resolve) => setTimeout(resolve, DEBOUNCE_MS));
-
-  // 3. Captura estado DEPOIS
-  const after = await r.lrange(key, 0, -1);
-  console.log(`[Buffer] AFTER  ${phone.slice(0, 6)}...: [${after.length} msgs]`);
-
-  // 4. Se mudou, outra execução processará
-  if (JSON.stringify(before) !== JSON.stringify(after)) {
-    console.log(`[Buffer] ⏭️ Nova msg detectada, descartando esta execução`);
-    return null;
+  try {
+    await getRedis().rpush(`buffer:${phone}`, text);
+    console.log(`[Buffer] PUSH ${phone.slice(0, 6)}... → "${text.slice(0, 50)}..."`);
+  } catch (err: any) {
+    console.warn('[Buffer] ⚠️ Redis indisponível, usando fallback em memória local');
+    const list = memoryBuffers.get(phone) || [];
+    list.push(text);
+    memoryBuffers.set(phone, list);
   }
-
-  // 5. Junta tudo em texto único
-  const fullMessage = after.join('\n');
-
-  // 6. Limpa buffer
-  await r.del(key);
-  console.log(`[Buffer] ✅ Coletado: "${fullMessage.slice(0, 80)}..."`);
-
-  return fullMessage;
 }
+
+export async function waitAndCollect(phone: string): Promise<string | null> {
+  try {
+    const r = getRedis();
+    const key = `buffer:${phone}`;
+
+    const before = await r.lrange(key, 0, -1);
+    console.log(`[Buffer] BEFORE ${phone.slice(0, 6)}...: [${before.length} msgs]`);
+
+    await new Promise((resolve) => setTimeout(resolve, DEBOUNCE_MS));
+
+    const after = await r.lrange(key, 0, -1);
+    console.log(`[Buffer] AFTER  ${phone.slice(0, 6)}...: [${after.length} msgs]`);
+
+    if (JSON.stringify(before) !== JSON.stringify(after)) {
+      console.log(`[Buffer] ⏭️ Nova msg detectada, descartando esta execução`);
+      return null;
+    }
+
+    const fullMessage = after.join('\n');
+    await r.del(key);
+    console.log(`[Buffer] ✅ Coletado: "${fullMessage.slice(0, 80)}..."`);
+    return fullMessage;
+  } catch (err: any) {
+    console.warn('[Buffer] ⚠️ Coletando via fallback em memória local...');
+    const msgs = memoryBuffers.get(phone) || [];
+    memoryBuffers.delete(phone);
+    return msgs.join('\n') || null;
+  }
+}
+
