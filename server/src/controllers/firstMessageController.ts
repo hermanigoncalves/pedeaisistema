@@ -3,6 +3,7 @@ import { FirstMessagePayload } from '../types';
 import { evolution } from '../adapters/evolutionAdapter';
 import { sendTypingAndWait } from '../services/presenceService';
 import { clearMemory } from '../agents/pedeaiAgent';
+import { normalizePhone } from '../services/phoneNormalizer';
 
 /**
  * Controller: Primeira Mensagem (Saudação de Check-in)
@@ -14,9 +15,11 @@ export function registerFirstMessageRoutes(app: FastifyInstance) {
   app.post('/webhook/leadpedeaichegou', async (request, reply) => {
     const payload = request.body as FirstMessagePayload;
 
+    const phone = normalizePhone(payload.telefone || '');
+
     console.log(`[FirstMsg] 📥 Check-in recebido:`, {
       nome: payload.nome,
-      telefone: payload.telefone?.slice(0, 6) + '...',
+      telefone: phone ? phone.slice(0, 6) + '...' : 'vazio',
       mesa: payload.mesaId,
       restaurante: payload.restauranteNome,
       isFirstVisit: payload.isFirstVisit,
@@ -28,16 +31,16 @@ export function registerFirstMessageRoutes(app: FastifyInstance) {
 
     try {
       // Validar dados obrigatórios
-      if (!payload.telefone || !payload.nome) {
+      if (!phone || !payload.nome) {
         console.error(`[FirstMsg] ❌ Payload incompleto: telefone=${payload.telefone}, nome=${payload.nome}`);
         return;
       }
 
       // Limpar memória do agente para este telefone (nova sessão = conversa limpa)
-      clearMemory(payload.telefone);
+      clearMemory(phone);
 
       // Digitando... (equivale ao Digitando...1 + Wait2)
-      await sendTypingAndWait(payload.restauranteId, payload.telefone, 1500);
+      await sendTypingAndWait(payload.restauranteId, phone, 1500);
 
       let mensagem: string;
 

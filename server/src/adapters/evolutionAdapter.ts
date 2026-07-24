@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import { config } from '../config';
 import { supabase } from './supabaseAdapter';
+import { normalizePhone } from '../services/phoneNormalizer';
 
 /** Erros de rede que justificam retry automático */
 const RETRYABLE_CODES = new Set(['EAI_AGAIN', 'ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND']);
@@ -148,21 +149,23 @@ class EvolutionAdapter {
 
 
 
+    const cleanNumber = normalizePhone(number);
+
     await withRetry(async () => {
       try {
         await axiosClient.post('/send/text', {
           instance: instanceName,
-          number,
+          number: cleanNumber,
           text: messageText,
           delay: 1000,
         });
-        console.log(`[Evolution Go] ✅ Texto enviado para ${number} (Instância: ${instanceName})`);
+        console.log(`[Evolution Go] ✅ Texto enviado para ${cleanNumber} (Instância: ${instanceName})`);
 
       } catch (err: any) {
         console.error(`[Evolution Go] ❌ Erro ao enviar texto:`, err.response?.data || err.message);
         throw err;
       }
-    }, `sendText(${number})`);  
+    }, `sendText(${cleanNumber})`);  
   }
 
   /**
@@ -191,11 +194,12 @@ class EvolutionAdapter {
       presenceState = state;
     }
 
+    const cleanNumber = normalizePhone(number);
     const { axiosClient, instanceName } = await this.getClientForRestaurante(restauranteId);
 
     try {
       await axiosClient.post('/message/presence', {
-        number,
+        number: cleanNumber,
         state: presenceState,
         isAudio: presenceState === 'recording',
       });
@@ -231,12 +235,13 @@ class EvolutionAdapter {
       mediaOpts = restauranteIdOrOpts;
     }
 
+    const cleanNumber = normalizePhone(mediaOpts?.number || '');
     const { axiosClient, instanceName } = await this.getClientForRestaurante(restauranteId);
 
     await withRetry(async () => {
       try {
         const payload: Record<string, any> = {
-          number: mediaOpts.number,
+          number: cleanNumber,
           type: mediaOpts.mediatype,
           url: mediaOpts.media,
           caption: mediaOpts.caption || '',
@@ -248,12 +253,12 @@ class EvolutionAdapter {
         }
 
         await axiosClient.post('/send/media', payload);
-        console.log(`[Evolution Go] ✅ Mídia (${mediaOpts.mediatype}) enviada para ${mediaOpts.number} (Instância: ${instanceName})`);
+        console.log(`[Evolution Go] ✅ Mídia (${mediaOpts.mediatype}) enviada para ${cleanNumber} (Instância: ${instanceName})`);
       } catch (err: any) {
         console.error(`[Evolution Go] ❌ Erro ao enviar mídia (${mediaOpts?.mediatype}):`, err.response?.data || err.message);
         throw err;
       }
-    }, `sendMedia(${mediaOpts?.number})`);  
+    }, `sendMedia(${cleanNumber})`);  
   }
 
   /**
