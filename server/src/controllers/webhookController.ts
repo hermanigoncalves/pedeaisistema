@@ -7,22 +7,21 @@ import { sendTypingAndWait } from '../services/presenceService';
 import { evolution } from '../adapters/evolutionAdapter';
 import { supabase } from '../adapters/supabaseAdapter';
 import { runAgent } from '../agents/pedeaiAgent';
-import { runDeliveryAgent } from '../agents/deliveryAgent';
 
 export function registerWebhookRoutes(app: FastifyInstance) {
-  // Webhook Principal para Salão / Mesas / Atendimento Geral
+  // Webhook Principal PedeAI (Salão / Mesas / Delivery / Geral)
   app.post('/webhook/pedeai', async (request, reply) => {
-    return handleWebhookRequest(request, reply, 'pedeai');
+    return handleWebhookRequest(request, reply);
   });
 
-  // Webhook Exclusivo para Delivery e Entregas
+  // Webhook para compatibilidade Delivery
   app.post('/webhook/delivery', async (request, reply) => {
-    return handleWebhookRequest(request, reply, 'delivery');
+    return handleWebhookRequest(request, reply);
   });
 
   // Webhook Genérico (Fallback)
   app.post('/webhook', async (request, reply) => {
-    return handleWebhookRequest(request, reply, 'pedeai');
+    return handleWebhookRequest(request, reply);
   });
 
   // Endpoint de Despacho de Pedidos acionado pelo Kanban
@@ -41,11 +40,11 @@ export function registerWebhookRoutes(app: FastifyInstance) {
       }
     }
 
-    return reply.code(200).send({ success: true, message: 'Despacho processado pelo Agente de Delivery' });
+    return reply.code(200).send({ success: true, message: 'Despacho processado pelo PedeAí' });
   });
 }
 
-async function handleWebhookRequest(request: any, reply: any, agentType: 'pedeai' | 'delivery') {
+async function handleWebhookRequest(request: any, reply: any) {
   const payload = request.body as any;
   const log = request.log;
 
@@ -57,14 +56,13 @@ async function handleWebhookRequest(request: any, reply: any, agentType: 'pedeai
   // LOG diagnóstico
   log.warn({
     event,
-    agentType,
     hasInfo: !!data.Info,
     sender: info.Sender?.slice(0, 15),
     isFromMe: info.IsFromMe,
     isGroup: info.IsGroup,
     type: info.Type,
     pushName: info.PushName,
-  }, `[WEBHOOK ${agentType.toUpperCase()}] Evento recebido`);
+  }, `[WEBHOOK PEDEAI] Evento recebido`);
 
   // 1. Só processa evento "Message"
   if (event !== 'Message') {
@@ -176,10 +174,9 @@ async function handleWebhookRequest(request: any, reply: any, agentType: 'pedeai
       let detectedRestaurante = null;
 
       if (instanceName) {
-        log.warn({ instanceName, isDelivery: agentType === 'delivery' }, '[PIPELINE] Buscando restaurante pela instância Evolution...');
-        detectedRestaurante = await supabase.getRestauranteByEvolutionInstance(instanceName, agentType === 'delivery');
+        log.warn({ instanceName }, '[PIPELINE] Buscando restaurante pela instância Evolution...');
+        detectedRestaurante = await supabase.getRestauranteByEvolutionInstance(instanceName, false);
       }
-
 
       // Obter ou criar usuário associado ao restaurante correto
       const targetRestauranteId = detectedRestaurante?.id || undefined;
@@ -212,32 +209,15 @@ async function handleWebhookRequest(request: any, reply: any, agentType: 'pedeai
         }
       }
 
-      // 8.5 Trava de Segurança do Salão: Se for canal de Salão (pedeai) e NÃO tiver mesa ativa, NÃO responde!
-      if (agentType === 'pedeai') {
-        const mesaAtiva = userData.mesa_atual && userData.mesa_atual !== '0' && userData.mesa_atual !== '';
-        if (!mesaAtiva) {
-          log.warn({ phone, mesa: userData.mesa_atual }, '[PIPELINE] 🛑 Usuário sem mesa ativa no Salão. Ignorando resposta automática do robô de mesas.');
-          return;
-        }
-      }
+      // 9. Executar o Agente IA PedeAí Unificado
+      log.warn('[PIPELINE] Executando Agente IA PedeAí...');
+      const agentResponse = await runAgent(phone, collectedMessage, userData);
 
-      // 9. Executar o Agente IA correspondente (Salão vs Delivery)
-      log.warn(`[PIPELINE] Executando agente IA (${agentType.toUpperCase()})...`);
+      log.warn(`[PIPELINE] Resposta IA: "${agentResponse.slice(0, 80)}"`);
 
-      let agentResponse = '';
-      if (agentType === 'delivery') {
-        agentResponse = await runDeliveryAgent(phone, collectedMessage, userData);
-      } else {
-        agentResponse = await runAgent(phone, collectedMessage, userData);
-      }
-
-      log.warn(`[PIPELINE] Resposta IA (${agentType}): "${agentResponse.slice(0, 80)}"`);
-
-      // 10. Enviar resposta via WhatsApp pela instância do tipo de agente correspondente
-      const isDelivery = agentType === 'delivery';
+      // 10. Enviar resposta via WhatsApp pela instância Evolution recebida
       await sendTypingAndWait(restauranteId, phone, 1000);
-      await evolution.sendText(restauranteId, phone, agentResponse, isDelivery, instanceName);
-
+      await evolution.sendText(restauranteId, phone, agentResponse, false, instanceName);
 
       // 11. Salvar resposta da IA no Supabase
       if (userData.id_restaurante) {
@@ -245,7 +225,7 @@ async function handleWebhookRequest(request: any, reply: any, agentType: 'pedeai
           await supabase.saveMensagem({
             restaurante_id: userData.id_restaurante,
             telefone: phone,
-            nome_contato: agentType === 'delivery' ? 'Delivery Agent' : 'PedeAI',
+            nome_contato: 'PedeAI',
             conteudo: agentResponse,
             tipo: 'text',
             direcao: 'enviada',

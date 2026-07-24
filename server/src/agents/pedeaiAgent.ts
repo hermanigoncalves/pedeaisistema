@@ -221,47 +221,12 @@ export async function runAgent(
     .slice(-10) // Últimas 10 interações
     .join('\n');
 
-  // 2. Roteador de Intenções (Intent Router) usando gpt-4o-mini
-  let category: 'vendas' | 'servico' | 'geral' = 'geral';
-  try {
-    const routerModel = new ChatOpenAI({
-      model: 'gpt-4o-mini',
-      temperature: 0,
-      apiKey: config.OPENAI_API_KEY,
-    });
-
-    const routerPrompt = `Você é o classificador do sistema de autoatendimento PedeAI. Sua tarefa é classificar a intenção da última mensagem do cliente em uma das três categorias abaixo:
-    
-    - "vendas": se o cliente quer ver o cardápio, saber preços, pedir comidas/bebidas, adicionar itens, perguntar o que tem para comer/beber, escolher opcionais de pratos, etc.
-    - "servico": se o cliente quer pedir a conta, quer ver os pedidos dele, quer fechar a conta da mesa/comanda, quer saber o valor da conta, quer dividir a conta por pessoas, ou quer chamar o garçom/atendente.
-    - "geral": se o cliente enviou saudações (oi, olá, boa noite), agradecimentos (obrigado, valeu), perguntas gerais sobre o local (onde fica, que horas fecha, tem wi-fi?), ou mensagens casuais não relacionadas a pedir produtos ou fechar conta.
-    
-    Responda EXCLUSIVAMENTE com um JSON no seguinte formato:
-    {
-      "category": "vendas" | "servico" | "geral",
-      "reasoning": "explicação curta da intenção detectada"
-    }
-    
-    Histórico recente da conversa:
-    ${formattedHistory}
-    
-    Última mensagem do cliente:
-    "${message}"`;
-
-    const routerResponse = await routerModel.invoke(routerPrompt);
-    const responseText = typeof routerResponse.content === 'string' ? routerResponse.content : '';
-    const cleanText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-    const routerJson = JSON.parse(cleanText);
-    category = routerJson.category || 'geral';
-    console.log(`[Router] Categoria classificada: "${category}" | Motivo: "${routerJson.reasoning}"`);
-  } catch (err: any) {
-    console.warn(`[Router] Falha na classificação de intenções, usando fallback 'geral': ${err.message}`);
+  // 2. Definir prompt base unificado (ou concatenar especialistas)
+  let basePromptText = `${SYSTEM_PROMPT_GERAL}\n\n${SYSTEM_PROMPT_VENDAS}\n\n${SYSTEM_PROMPT_SERVICO}`;
+  if (baseVendasPrompt || baseServicoPrompt || baseGeralPrompt) {
+    basePromptText = `${baseGeralPrompt}\n\n${baseVendasPrompt}\n\n${baseServicoPrompt}`;
   }
 
-  // 3. Configurar especialista selecionado
-  let basePromptText = baseGeralPrompt;
-  let tools: any[] = [];
-  
   // No modo comanda, as tools filtram por telefone do usuario
   // No modo mesa, as tools buscam todos os pedidos da mesa
   const toolUserData = {
@@ -269,19 +234,21 @@ export async function runAgent(
     telefone: isComandaMode ? userData.telefone : '',
   };
 
+  // 3. Disponibilizar TODAS as ferramentas para o agente em TODAS as mensagens
+  const tools = [
+    criarPedidoTool(userData),
+    produtosCardapioTool(userData),
+    getMacarroesTool(userData),
+    getPedidosTool(toolUserData),
+    contaSolicitadaTool(userData, isComandaMode),
+    chamaGarcomTool(userData),
+    pegarInfoClienteTool(phone, userData.id_restaurante),
+    calculadoraTool,
+  ];
+
   let meiaPizzaRule = '';
-
-  if (category === 'vendas') {
-    basePromptText = baseVendasPrompt;
-    tools = [
-      criarPedidoTool(userData),
-      produtosCardapioTool(userData),
-      getMacarroesTool(userData),
-      calculadoraTool,
-    ];
-
-    if (meiaPizzaHabilitada) {
-      meiaPizzaRule = `\n\n## 🍕 PIZZA MEIA A MEIA (HABILITADA)
+  if (meiaPizzaHabilitada) {
+    meiaPizzaRule = `\n\n## 🍕 PIZZA MEIA A MEIA (HABILITADA)
 
 ### 🚫 REGRA NÚMERO 1 — PROIBIÇÃO ABSOLUTA (LEIA ANTES DE TUDO)
 Ao confirmar um pedido de pizza meia a meia para o cliente, você está **TERMINANTEMENTE PROIBIDO** de:
@@ -307,36 +274,18 @@ Se você mencionar preço de sabor individual ou explicar a regra de cobrança, 
 5. Registre com Criar_pedido:
    - Nome do item: "Pizza Meia a Meia"
    - Descrição: "Metade [Sabor 1] + Metade [Sabor 2]"
-   - Preço (Subtotal): o valor calculado.`;
-    } else {
-      meiaPizzaRule = `\n\n## 🍕 PIZZA MEIA A MEIA (DESABILITADA)
+   - Preço (Subtotal): o valor calculated.`;
+  } else {
+    meiaPizzaRule = `\n\n## 🍕 PIZZA MEIA A MEIA (DESABILITADA)
 ⚠️ REGRA CRÍTICA: O restaurante NÃO permite e NÃO vende pizza meia a meia (metade/metade / meio a meio / dois sabores).
 - Se o cliente pedir uma pizza meio a meio ou com mais de um sabor, você está expressamente PROIBIDO de criar o pedido ou executar Criar_pedido. Explique educadamente que o estabelecimento só trabalha com pizzas inteiras (um sabor por pizza) e peça para ele escolher um único sabor para a pizza inteira.
 - Se o cliente pedir uma pizza de sabor único (ex: "uma pizza de calabresa", "uma calabresa inteira"), esta regra NÃO se aplica. Crie o pedido imediatamente utilizando a tool Criar_pedido e informe o cliente. NÃO mencione a restrição de meia a meia nem fale sobre "pizzas inteiras" se o cliente não tiver solicitado múltiplos sabores.`;
-    }
-  } else if (category === 'servico') {
-    basePromptText = baseServicoPrompt;
-    tools = [
-      getPedidosTool(toolUserData),
-      contaSolicitadaTool(userData, isComandaMode),
-      chamaGarcomTool(userData),
-      pegarInfoClienteTool(phone, userData.id_restaurante),
-      calculadoraTool,
-    ];
-  } else {
-    // categoria 'geral'
-    basePromptText = baseGeralPrompt;
-    tools = [
-      pegarInfoClienteTool(phone, userData.id_restaurante),
-    ];
   }
 
-  // 4. Instanciar e executar o agente especialista correspondente
-  // Geral (conversacional) usa temperatura mais alta para respostas mais naturais
-  const agentTemperature = category === 'geral' ? 0.4 : 0.1;
+  // 4. Instanciar e executar o agente unificado
   const model = new ChatOpenAI({
     model: 'gpt-4o-mini',
-    temperature: agentTemperature,
+    temperature: 0.2,
     apiKey: config.OPENAI_API_KEY,
   });
 
@@ -361,7 +310,7 @@ Se você mencionar preço de sabor individual ou explicar a regra de cobrança, 
     const modoCobranca = isComandaMode ? 'comanda' : 'mesa';
     const clienteNome = userData.nome || 'Cliente';
     const result = await executor.invoke({
-      input: `CONTEXTO DO CLIENTE\nNome do cliente: ${clienteNome}\nTelefone: ${phone}\nMesa: ${userData.mesa_atual}\nModo de cobrança: ${modoCobranca}\nCategoria atual: ${category}\n\nMensagem do cliente: ${message}`,
+      input: `CONTEXTO DO CLIENTE\nNome do cliente: ${clienteNome}\nTelefone: ${phone}\nMesa: ${userData.mesa_atual || 'Sem mesa'}\nModo de cobrança: ${modoCobranca}\n\nMensagem do cliente: ${message}`,
     });
 
     let output = result.output || 'Desculpe, não consegui processar sua mensagem. Tente novamente!';
@@ -372,10 +321,10 @@ Se você mencionar preço de sabor individual ou explicar a regra de cobrança, 
     output = output.replace(/\*/g, '');
     output = output.trim();
 
-    console.log(`[Agent] ✅ Resposta (${category}): "${output.slice(0, 80)}..."`);
+    console.log(`[Agent] ✅ Resposta PedeAí: "${output.slice(0, 80)}..."`);
     return output;
   } catch (err: any) {
-    console.error(`[Agent] ❌ Erro ao executar especialista "${category}":`, err.message);
+    console.error(`[Agent] ❌ Erro ao executar Agente PedeAí:`, err.message);
     
     // Failover: Chamar garçom via banco silenciosamente para não deixar o cliente sem atendimento
     try {
