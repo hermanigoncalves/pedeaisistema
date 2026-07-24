@@ -144,11 +144,13 @@ class EvolutionAdapter {
     await withRetry(async () => {
       try {
         await axiosClient.post('/send/text', {
+          instance: instanceName,
           number,
           text: messageText,
           delay: 1000,
         });
         console.log(`[Evolution Go] ✅ Texto enviado para ${number} (Instância: ${instanceName})`);
+
       } catch (err: any) {
         console.error(`[Evolution Go] ❌ Erro ao enviar texto:`, err.response?.data || err.message);
         throw err;
