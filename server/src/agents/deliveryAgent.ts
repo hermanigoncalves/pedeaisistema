@@ -100,7 +100,7 @@ export async function runDeliveryAgent(
     produtosCardapioTool(userData.id_restaurante),
     pegarInfoClienteTool(phone, userData.id_restaurante),
     getPedidosTool(phone, userData.id_restaurante),
-    calculadoraTool(),
+    calculadoraTool,
   ];
 
   const prompt = ChatPromptTemplate.fromMessages([
