@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { MessageType } from '../types';
 import { normalizePhone } from '../services/phoneNormalizer';
 import { pushToBuffer, waitAndCollect } from '../services/messageBuffer';
-import { transcribeAudio, analyzeImage } from '../services/mediaService';
+import { transcribeAudio, analyzeImage, downloadAndProcess } from '../services/mediaService';
 import { sendTypingAndWait } from '../services/presenceService';
 import { evolution } from '../adapters/evolutionAdapter';
 import { supabase } from '../adapters/supabaseAdapter';
@@ -131,15 +131,14 @@ async function handleWebhookRequest(request: any, reply: any) {
 
       // Transcrição de áudio se necessário
       if (messageType === 'audio') {
-        if (!mediaUrl && message.base64) {
-          mediaUrl = `data:audio/ogg;base64,${message.base64}`;
-        }
-        if (mediaUrl) {
-          log.warn({ mediaUrl: mediaUrl.slice(0, 50) }, '[PIPELINE] Transcrevendo áudio...');
-          rawText = await transcribeAudio(mediaUrl);
-        } else {
-          log.warn('[PIPELINE] Mensagem de áudio sem URL ou base64.');
-          return;
+        log.warn({ restauranteId }, '[PIPELINE] Baixando e transcrevendo áudio...');
+        rawText = await downloadAndProcess(restauranteId, data, 'audio');
+        if (!rawText || rawText.includes('[Áudio') || rawText.includes('[Mídia')) {
+          const fallbackInput = message.base64 ? `data:audio/ogg;base64,${message.base64}` : mediaUrl;
+          if (fallbackInput) {
+            log.warn('[PIPELINE] Tentando fallback de transcrição direta do áudio...');
+            rawText = await transcribeAudio(fallbackInput);
+          }
         }
       }
 

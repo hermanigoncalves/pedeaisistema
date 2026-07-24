@@ -1,4 +1,5 @@
-import OpenAI from 'openai';
+import OpenAI, { toFile } from 'openai';
+import axios from 'axios';
 import { config } from '../config';
 import { evolution } from '../adapters/evolutionAdapter';
 import { supabase } from '../adapters/supabaseAdapter';
@@ -7,15 +8,37 @@ const openai = new OpenAI({ apiKey: config.OPENAI_API_KEY });
 
 /**
  * Transcreve áudio usando OpenAI Whisper.
- * Equivalente ao fluxo: baixa_audio → Convert to File → OpenAI (transcribe)
+ * Suporta URLs (http/https), Data URIs (data:audio/...) e Base64 cru.
  */
-export async function transcribeAudio(base64Data: string): Promise<string> {
+export async function transcribeAudio(input: string): Promise<string> {
   try {
-    // Converte base64 para Buffer
-    const buffer = Buffer.from(base64Data, 'base64');
+    let buffer: Buffer;
 
-    // Cria um File-like para a API
-    const file = new File([buffer], 'audio.mp3', { type: 'audio/mp3' });
+    if (!input || !input.trim()) {
+      console.warn('[Media] ⚠️ Entradas de áudio vazia para transcrição');
+      return '[Áudio sem conteúdo]';
+    }
+
+    const trimmed = input.trim();
+
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      console.log('[Media] 🌐 Baixando arquivo de áudio da URL...');
+      const response = await axios.get(trimmed, { responseType: 'arraybuffer' });
+      buffer = Buffer.from(response.data);
+    } else if (trimmed.startsWith('data:')) {
+      const parts = trimmed.split(',');
+      const base64Data = parts[1] || parts[0];
+      buffer = Buffer.from(base64Data, 'base64');
+    } else {
+      buffer = Buffer.from(trimmed, 'base64');
+    }
+
+    if (!buffer || buffer.length === 0) {
+      console.warn('[Media] ⚠️ Buffer de áudio vazio');
+      return '[Áudio sem conteúdo]';
+    }
+
+    const file = await toFile(buffer, 'audio.ogg', { type: 'audio/ogg' });
 
     const response = await openai.audio.transcriptions.create({
       model: 'whisper-1',
@@ -23,7 +46,7 @@ export async function transcribeAudio(base64Data: string): Promise<string> {
       language: 'pt',
     });
 
-    console.log(`[Media] 🎤 Transcrição: "${response.text.slice(0, 80)}..."`);
+    console.log(`[Media] 🎤 Transcrição concluída: "${response.text.slice(0, 80)}..."`);
     return response.text;
   } catch (err: any) {
     console.error('[Media] ❌ Erro transcrição:', err.message);
