@@ -171,8 +171,18 @@ async function handleWebhookRequest(request: any, reply: any, agentType: 'pedeai
 
       log.warn({ phone, collectedMessage }, '[PIPELINE] Mensagem coletada do buffer. Processando...');
 
-      // 7. Obter ou criar usuário no Supabase
-      const userData = await supabase.getOrCreateUser(phone, senderName);
+      // 7. Resolver restaurante dinamicamente pela Instância Evolution recebida no webhook
+      const instanceName = payload.instance || payload.instanceId || info.Instance || '';
+      let detectedRestaurante = null;
+
+      if (instanceName) {
+        log.warn({ instanceName }, '[PIPELINE] Buscando restaurante pela instância Evolution...');
+        detectedRestaurante = await supabase.getRestauranteByEvolutionInstance(instanceName);
+      }
+
+      // Obter ou criar usuário associado ao restaurante correto
+      const targetRestauranteId = detectedRestaurante?.id || undefined;
+      const userData = await supabase.getOrCreateUser(phone, senderName, targetRestauranteId);
       restauranteId = userData.id_restaurante || null;
 
       // 8. Salvar mensagem recebida
