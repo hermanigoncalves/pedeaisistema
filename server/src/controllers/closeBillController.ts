@@ -61,13 +61,12 @@ export function registerCloseBillRoutes(app: FastifyInstance) {
 
           if (pedErr) console.error('[CloseBill] Erro ao fechar pedidos da comanda:', pedErr.message);
 
-          // B. Liberar check-in deste usuário
+          // B. Liberar check-in deste usuário (Mesa = '0', Status = 'Inativo')
           const { error: userErr } = await supabase.client
             .from('Usuários')
             .update({ mesa_atual: '0', Status: 'Inativo' })
             .eq('id_restaurante', restauranteId)
-            .eq('telefone', payload.telefone)
-            .eq('mesa_atual', tableStr);
+            .eq('telefone', payload.telefone);
 
           if (userErr) console.error('[CloseBill] Erro ao liberar check-in da comanda:', userErr.message);
 
@@ -85,7 +84,7 @@ export function registerCloseBillRoutes(app: FastifyInstance) {
 
           if (pedErr) console.error('[CloseBill] Erro ao fechar pedidos da mesa:', pedErr.message);
 
-          // B. Liberar check-in de todos os usuários sentados nessa mesa
+          // B. Liberar check-in de todos os usuários sentados nessa mesa (Mesa = '0', Status = 'Inativo')
           const { error: userErr } = await supabase.client
             .from('Usuários')
             .update({ mesa_atual: '0', Status: 'Inativo' })
@@ -94,6 +93,7 @@ export function registerCloseBillRoutes(app: FastifyInstance) {
 
           if (userErr) console.error('[CloseBill] Erro ao liberar check-in da mesa:', userErr.message);
         }
+
       }
 
       // Responde com sucesso ao frontend após a persistência segura no banco
