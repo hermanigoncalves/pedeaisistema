@@ -96,11 +96,11 @@ export async function runDeliveryAgent(
   });
 
   const tools = [
-    criarPedidoTool,
-    produtosCardapioTool,
-    pegarInfoClienteTool,
-    getPedidosTool,
-    calculadoraTool,
+    criarPedidoTool(userData),
+    produtosCardapioTool(userData.id_restaurante),
+    pegarInfoClienteTool(phone, userData.id_restaurante),
+    getPedidosTool(phone, userData.id_restaurante),
+    calculadoraTool(),
   ];
 
   const prompt = ChatPromptTemplate.fromMessages([
