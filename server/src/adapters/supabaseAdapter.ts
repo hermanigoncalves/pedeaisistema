@@ -112,10 +112,12 @@ class SupabaseAdapter {
   }
 
   async getRestauranteByEvolutionInstance(instanceName: string) {
+    if (!instanceName) return null;
     const { data, error } = await this.client
       .from('Restaurantes')
       .select('*')
-      .or(`evolution_instancia.eq.${instanceName},evolution_instancia_delivery.eq.${instanceName}`)
+      .or(`evolution_instancia.eq.${instanceName},evolution_instancia_delivery.eq.${instanceName},evolution_instancia.ilike.%${instanceName}%,evolution_instancia_delivery.ilike.%${instanceName}%`)
+      .limit(1)
       .maybeSingle();
 
     if (error) console.error('[Supabase] Erro getRestauranteByEvolutionInstance:', error.message);
