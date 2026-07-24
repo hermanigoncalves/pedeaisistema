@@ -36,7 +36,7 @@ async function main() {
 
   // Start
   await app.listen({ port: config.PORT, host: '0.0.0.0' });
-  console.log(`🚀 Agente [${config.AGENT_ROLE.toUpperCase()}] Backend rodando na porta ${config.PORT}`);
+  console.log(`🚀 Sistema PedeAí (Salão & Delivery PRO) Backend rodando na porta ${config.PORT}`);
 }
 
 main().catch((err) => {
