@@ -182,8 +182,18 @@ async function handleWebhookRequest(request: any, reply: any, agentType: 'pedeai
 
       // Obter ou criar usuário associado ao restaurante correto
       const targetRestauranteId = detectedRestaurante?.id || undefined;
-      const userData = await supabase.getOrCreateUser(phone, senderName, targetRestauranteId);
-      restauranteId = userData.id_restaurante || null;
+      let userData = await supabase.getOrCreateUser(phone, senderName, targetRestauranteId);
+
+      // Se a instância pertence a um restaurante diferente do cadastrado no usuário, atualiza o usuário no banco!
+      if (detectedRestaurante?.id && userData.id_restaurante !== detectedRestaurante.id) {
+        log.warn({ phone, oldRest: userData.id_restaurante, newRest: detectedRestaurante.id }, '[PIPELINE] 🔄 Atualizando id_restaurante do usuário para a instância atual');
+        await supabase.client
+          .from('Usuários')
+          .update({ id_restaurante: detectedRestaurante.id })
+          .eq('id', userData.id);
+        userData.id_restaurante = detectedRestaurante.id;
+      }
+      restauranteId = detectedRestaurante?.id || userData.id_restaurante || null;
 
       // 8. Salvar mensagem recebida
       if (userData.id_restaurante) {
