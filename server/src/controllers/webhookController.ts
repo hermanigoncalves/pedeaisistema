@@ -161,8 +161,8 @@ async function handleWebhookRequest(request: any, reply: any, agentType: 'pedeai
       log.warn({ phone, text: rawText }, '[PIPELINE] Adicionando mensagem ao buffer...');
       await pushToBuffer(phone, rawText);
 
-      log.warn({ phone }, '[PIPELINE] Aguardando janela do buffer (2s)...');
-      const collectedMessage = await waitAndCollect(phone, 2000);
+      log.warn({ phone }, '[PIPELINE] Aguardando janela do buffer...');
+      const collectedMessage = await waitAndCollect(phone);
 
       if (!collectedMessage) {
         log.warn({ phone }, '[PIPELINE] Outra execução já consumiu as mensagens. Encerrando.');

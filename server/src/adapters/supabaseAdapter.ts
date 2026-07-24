@@ -55,6 +55,27 @@ class SupabaseAdapter {
     return user;
   }
 
+  async getOrCreateUser(phone: string, name?: string, restauranteId?: string) {
+    let user = await this.getUserByPhone(phone, restauranteId);
+    if (!user) {
+      // Busca o restaurante padrão se não informado
+      let targetRestauranteId = restauranteId;
+      if (!targetRestauranteId) {
+        const { data: rest } = await this.client.from('restaurantes').select('id').limit(1).single();
+        targetRestauranteId = rest?.id || '00000000-0000-0000-0000-000000000000';
+      }
+
+      user = await this.createUser({
+        telefone: phone,
+        id_restaurante: targetRestauranteId,
+        mesa_atual: '0',
+        Status: 'Ativo',
+        quantas_vezes_foi: 1,
+      });
+    }
+    return user;
+  }
+
   // ============================================================
   // Restaurantes
   // ============================================================
