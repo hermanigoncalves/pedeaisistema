@@ -176,9 +176,10 @@ async function handleWebhookRequest(request: any, reply: any, agentType: 'pedeai
       let detectedRestaurante = null;
 
       if (instanceName) {
-        log.warn({ instanceName }, '[PIPELINE] Buscando restaurante pela instância Evolution...');
-        detectedRestaurante = await supabase.getRestauranteByEvolutionInstance(instanceName);
+        log.warn({ instanceName, isDelivery: agentType === 'delivery' }, '[PIPELINE] Buscando restaurante pela instância Evolution...');
+        detectedRestaurante = await supabase.getRestauranteByEvolutionInstance(instanceName, agentType === 'delivery');
       }
+
 
       // Obter ou criar usuário associado ao restaurante correto
       const targetRestauranteId = detectedRestaurante?.id || undefined;

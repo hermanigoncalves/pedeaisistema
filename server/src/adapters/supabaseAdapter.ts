@@ -111,18 +111,23 @@ class SupabaseAdapter {
     return data;
   }
 
-  async getRestauranteByEvolutionInstance(instanceName: string) {
+  async getRestauranteByEvolutionInstance(instanceName: string, isDelivery: boolean = false) {
     if (!instanceName) return null;
-    const { data, error } = await this.client
-      .from('Restaurantes')
-      .select('*')
-      .or(`evolution_instancia.eq.${instanceName},evolution_instancia_delivery.eq.${instanceName},evolution_instancia.ilike.%${instanceName}%,evolution_instancia_delivery.ilike.%${instanceName}%`)
-      .limit(1)
-      .maybeSingle();
+
+    let query = this.client.from('Restaurantes').select('*');
+
+    if (isDelivery) {
+      query = query.or(`evolution_instancia_delivery.eq.${instanceName},evolution_instancia_delivery.ilike.%${instanceName}%`);
+    } else {
+      query = query.or(`evolution_instancia.eq.${instanceName},evolution_instancia_delivery.eq.${instanceName},evolution_instancia.ilike.%${instanceName}%,evolution_instancia_delivery.ilike.%${instanceName}%`);
+    }
+
+    const { data, error } = await query.limit(1).maybeSingle();
 
     if (error) console.error('[Supabase] Erro getRestauranteByEvolutionInstance:', error.message);
     return data;
   }
+
 
   // ============================================================
   // Produtos
