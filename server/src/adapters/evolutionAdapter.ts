@@ -121,6 +121,7 @@ class EvolutionAdapter {
     numberOrText?: string,
     text?: string,
     isDelivery: boolean = false,
+    overrideInstanceName?: string,
   ): Promise<void> {
     let restauranteId: string | null | undefined;
     let number: string;
@@ -138,7 +139,13 @@ class EvolutionAdapter {
       messageText = numberOrText || '';
     }
 
-    const { axiosClient, instanceName } = await this.getClientForRestaurante(restauranteId, isDelivery);
+    let { axiosClient, instanceName } = await this.getClientForRestaurante(restauranteId, isDelivery);
+
+    // Se o webhook forneceu explicitamente o nome da instância que recebeu a mensagem, prioriza ela!
+    if (overrideInstanceName && overrideInstanceName.trim()) {
+      instanceName = overrideInstanceName.trim();
+    }
+
 
 
     await withRetry(async () => {

@@ -236,7 +236,8 @@ async function handleWebhookRequest(request: any, reply: any, agentType: 'pedeai
       // 10. Enviar resposta via WhatsApp pela instância do tipo de agente correspondente
       const isDelivery = agentType === 'delivery';
       await sendTypingAndWait(restauranteId, phone, 1000);
-      await evolution.sendText(restauranteId, phone, agentResponse, isDelivery);
+      await evolution.sendText(restauranteId, phone, agentResponse, isDelivery, instanceName);
+
 
       // 11. Salvar resposta da IA no Supabase
       if (userData.id_restaurante) {
