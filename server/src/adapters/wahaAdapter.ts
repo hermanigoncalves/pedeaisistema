@@ -382,7 +382,7 @@ class WahaAdapter {
    */
   async downloadMedia(restauranteId: string | null, rawMessage: any): Promise<Buffer | null> {
     try {
-      const mediaUrl =
+      const rawUrl =
         rawMessage?.media?.url ||
         rawMessage?.mediaUrl ||
         rawMessage?.url ||
@@ -392,16 +392,24 @@ class WahaAdapter {
         rawMessage?._data?.Message?.videoMessage?.url ||
         rawMessage?._data?.Message?.documentMessage?.url;
 
-      if (!mediaUrl) {
+      if (!rawUrl) {
         console.warn(`[WAHA API] ⚠️ Nenhuma URL de mídia encontrada no payload`);
         return null;
       }
 
+      // Se a URL do WAHA contiver 'localhost:3000' ou a URL pública, extrai o caminho relativo /api/files/...
+      // para forçar a requisição através da rede interna do Docker (http://polis_waha:3000)
+      let downloadPath = rawUrl;
+      if (rawUrl.includes('/api/files/')) {
+        downloadPath = '/api/files/' + rawUrl.split('/api/files/')[1];
+      }
+
       const { axiosClient } = await this.getClientForRestaurante(restauranteId);
-      const res = await axiosClient.get(mediaUrl, { responseType: 'arraybuffer' });
+      console.log(`[WAHA API] 🌐 Baixando mídia do WAHA via rota interna: ${downloadPath}`);
+      const res = await axiosClient.get(downloadPath, { responseType: 'arraybuffer' });
       return Buffer.from(res.data);
     } catch (err: any) {
-      console.error(`[WAHA API] ❌ Erro ao baixar mídia:`, err.message);
+      console.error(`[WAHA API] ❌ Erro ao baixar mídia (${err.config?.url || 'URL desconhecida'}):`, err.message);
       return null;
     }
   }
