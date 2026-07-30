@@ -16,6 +16,13 @@ export function chamaGarcomTool(userData: { mesa_atual: string; id_restaurante: 
     schema: z.object({}),
     func: async () => {
       try {
+        if (!userData.mesa_atual || userData.mesa_atual === '0' || userData.mesa_atual === 'Sem mesa') {
+          return JSON.stringify({
+            success: false,
+            message: 'O cliente não está vinculado a nenhuma mesa (mesa_atual: 0). Oriente-o a realizar o check-in lendo o QR Code da mesa.'
+          });
+        }
+
         // Cria um pedido-sinal para o garçom (funciona mesmo sem pedidos na mesa)
         const result = await supabase.createPedido({
           mesa: userData.mesa_atual,
