@@ -74,7 +74,12 @@ async function handleWebhookRequest(request: any, reply: any) {
 
   const isGroup = wahaMsg?.from?.endsWith('@g.us') || wahaMsg?.to?.endsWith('@g.us') || info.IsGroup || key.remoteJid?.endsWith('@g.us') || rawData.isGroup || false;
   const isFromMe = wahaMsg?.fromMe ?? info.IsFromMe ?? key.fromMe ?? rawData.fromMe ?? false;
-  const remoteJid = wahaMsg?.from || wahaMsg?.chatId || info.Chat || info.Sender || key.remoteJid || rawData.remoteJid || payload.sender || '';
+
+  let remoteJid = wahaMsg?.from || '';
+  if (!remoteJid || remoteJid.includes('@lid')) {
+    remoteJid = wahaMsg?._data?.key?.remoteJid || wahaMsg?._data?.from || wahaMsg?.chatId || wahaMsg?.author || info.Chat || info.Sender || key.remoteJid || rawData.remoteJid || payload.sender || '';
+  }
+
   const pushName = wahaMsg?._data?.notifyName || wahaMsg?.notifyName || info.PushName || rawData.pushName || payload.pushName || 'Cliente';
 
   // LOG diagnóstico
