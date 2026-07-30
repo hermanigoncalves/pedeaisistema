@@ -339,18 +339,28 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   });
 
   const handleAddProduct = async () => {
-    if (newProduct.name && (newProduct.price !== undefined)) {
-      await addProduct({
-        name: newProduct.name,
-        price: newProduct.price,
-        category: newProduct.category || 'Geral',
-        station: newProduct.station || 'bar',
-        stock: newProduct.stock || 0,
-        isActive: newProduct.isActive ?? true,
-        minStock: newProduct.minStock || 10,
-        costPrice: newProduct.costPrice || 0,
-        description: newProduct.description || '',
-      });
+    if (!newProduct.name || !newProduct.name.trim()) {
+      toast.error('Por favor, informe o nome do produto.');
+      return;
+    }
+    if (newProduct.price === undefined || newProduct.price === null || isNaN(newProduct.price)) {
+      toast.error('Por favor, informe um preço válido para o produto.');
+      return;
+    }
+
+    const success = await addProduct({
+      name: newProduct.name.trim(),
+      price: Number(newProduct.price),
+      category: newProduct.category || 'Geral',
+      station: newProduct.station || 'bar',
+      stock: Number(newProduct.stock || 0),
+      isActive: newProduct.isActive ?? true,
+      minStock: Number(newProduct.minStock || 10),
+      costPrice: Number(newProduct.costPrice || 0),
+      description: newProduct.description || '',
+    });
+
+    if (success) {
       setNewProduct({
         name: '',
         price: 0,

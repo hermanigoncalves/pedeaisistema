@@ -266,7 +266,33 @@ export function criarPedidoTool(userData: { mesa_atual: string; id_restaurante: 
           subtotalFinal = subtotalCorreto;
         }
 
-        // 7. Inserir no banco
+        // 7. Trava de Antiduplicação (Idempotência temporal de 60s)
+        const cutoff = new Date(Date.now() - 60 * 1000).toISOString();
+        const { data: recentOrders } = await supabase.client
+          .from('Pedidos')
+          .select('id, created_at, itens, descricao')
+          .eq('mesa', Number(userData.mesa_atual).toString())
+          .eq('restaurante_id', userData.id_restaurante)
+          .neq('status', 'fechado')
+          .gte('created_at', cutoff);
+
+        if (recentOrders && recentOrders.length > 0) {
+          const isDuplicate = recentOrders.some((p: any) => {
+            const sameItem = p.itens?.trim().toLowerCase() === nomeItemCorrigido.trim().toLowerCase();
+            return sameItem;
+          });
+
+          if (isDuplicate) {
+            console.warn(`[criarPedido] ⚠️ Pedido duplicado detectado para "${nomeItemCorrigido}" na Mesa ${userData.mesa_atual} nos últimos 60s. Ignorando inserção redundante.`);
+            return JSON.stringify({
+              success: true,
+              duplicateIgnored: true,
+              message: `O pedido de "${nomeItemCorrigido}" já foi registrado recentemente para a Mesa ${userData.mesa_atual}. A inserção duplicada foi evitada com sucesso.`
+            });
+          }
+        }
+
+        // 8. Inserir no banco
         const result = await supabase.createPedido({
           mesa: Number(userData.mesa_atual).toString(),
           status: 'Pendente',

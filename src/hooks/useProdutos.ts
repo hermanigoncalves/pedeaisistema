@@ -60,39 +60,52 @@ export const useProdutos = (restaurantId: string | null) => {
 
   // Add new product
   const addProduto = useCallback(async (produto: ProdutoInput): Promise<boolean> => {
-    if (!restaurantId) return false;
+    if (!restaurantId) {
+      console.error('[addProduto] ❌ Erro: ID do restaurante não está definido.');
+      toast.error('Erro de Sessão: ID do restaurante não identificado. Recarregue a página.');
+      return false;
+    }
 
     try {
-      console.log('Adding product with data:', {
+      const precoStr = produto.preco !== undefined && produto.preco !== null && !isNaN(Number(produto.preco))
+        ? Number(produto.preco).toFixed(2)
+        : '0.00';
+
+      console.log('[addProduto] Salvando produto no Supabase:', {
         restaurante_id: restaurantId,
         nome: produto.nome,
-        preco: produto.preco.toString(),
+        preco: precoStr,
+        categoria: produto.categoria || 'Geral',
+        estacao: produto.estacao || 'bar',
       });
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('Produtos')
         .insert({
           restaurante_id: restaurantId,
-          nome: produto.nome,
-          preco: produto.preco.toString(),
+          nome: produto.nome.trim(),
+          preco: precoStr,
           categoria: produto.categoria || 'Geral',
           estacao: produto.estacao || 'bar',
-          estoque: produto.estoque || 0,
-          estoque_minimo: produto.estoque_minimo || 10,
+          estoque: produto.estoque !== undefined ? Number(produto.estoque) : 0,
+          estoque_minimo: produto.estoque_minimo !== undefined ? Number(produto.estoque_minimo) : 10,
           descricao: produto.descricao || '',
           ativo: produto.ativo ?? true,
-        });
+        })
+        .select();
 
       if (error) {
-        console.error('Supabase Error adding product:', error);
-        toast.error(`Erro do Banco: ${error.message}`);
+        console.error('[addProduto] ❌ Supabase Error:', error);
+        toast.error(`Erro ao salvar produto no banco: ${error.message}`);
         return false;
       }
 
+      console.log('[addProduto] ✅ Produto criado com sucesso:', data);
       await fetchProdutos();
       return true;
-    } catch (err) {
-      console.error('Failed to add product:', err);
+    } catch (err: any) {
+      console.error('[addProduto] ❌ Erro inesperado:', err);
+      toast.error(`Erro inesperado ao salvar produto: ${err?.message || 'Falha na requisição'}`);
       return false;
     }
   }, [restaurantId, fetchProdutos]);

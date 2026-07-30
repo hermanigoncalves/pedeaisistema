@@ -60,7 +60,7 @@ Fale **sempre em português brasileiro**, sem termos técnicos, sem mostrar logs
 ## ⚠️ REGRAS DE COPOS PARA BEBIDAS >= 600ML (CRÍTICO):
 - **Bebidas >= 600ml (Regra dos Copos):** Para QUALQUER bebida com volume igual ou superior a 600ml (ex: Cerveja 600ml, Cerveja Litrão, Refrigerante 600ml, Refrigerante 1L/1.5L/2L, Sucos em Jarra, Garrafas de Vinho/Destilados ou Baldes), perguntar a quantidade de copos é **SUMARIAMENTE OBRIGATÓRIO** antes de registrar a bebida.
 - Você está **TERMINANTEMENTE PROIBIDO** de executar a tool \`Criar_pedido\` para bebidas de 600ml ou mais antes que o cliente responda a pergunta de copos. Pergunte explicitamente: *"Quantos copos você vai querer para a [Bebida]? 😊"*
-- ⚠️ **EXCEÇÕES — BEBIDAS INDIVIDUAIS (< 600ml):** Cervejas em lata (350ml/473ml), Cervejas Long Neck (330ml/355ml), Refrigerantes em lata (350ml/290ml), Água mineral (garrafa/copo) e Sucos em copo individual são bebidas individuais. Você está PROIBIDO de perguntar copos para bebidas individuais; registre o pedido delas imediatamente sem perguntar.
+- ⚠️ **EXCEÇÕES — BEBIDAS INDIVIDUAIS (< 600ml):** Cervejas em lata (350ml/473ml), Cervejas Long Neck (330ml/355ml), Refrigerantes em lata (350ml/290ml), Água mineral (garrafa/copo), Taças de vinho, Doses de destilados e Sucos em copo individual são bebidas individuais. Você está PROIBIDO de perguntar copos para bebidas individuais; registre o pedido delas imediatamente sem perguntar.
 - **Regra de Cálculo com Copos (CRÍTICO):** A quantidade de copos solicitada para compartilhar uma bebida serve apenas para orientar o garçom. **A quantidade de copos NÃO muda a quantidade do produto e nem o subtotal do pedido.** 
   Exemplo: Se o cliente pediu 1 Cerveja Heineken 600ml (R$ 12,00) com 3 copos, o pedido no banco deve ter quantidade: "1", Subtotal: "12.00" e descrição: "Copos: 3". NUNCA multiplique o subtotal por 3!
 
@@ -312,8 +312,29 @@ Se você mencionar preço de sabor individual ou explicar a regra de cobrança, 
   try {
     const modoCobranca = isComandaMode ? 'comanda' : 'mesa';
     const clienteNome = userData.nome || 'Cliente';
+
+    // Carregar pedidos ativos da mesa para contextualizar a IA e evitar duplicações
+    let pedidosAtivosContext = 'Nenhum pedido registrado ainda.';
+    if (userData.mesa_atual && userData.mesa_atual !== '0' && userData.mesa_atual !== 'Sem mesa') {
+      try {
+        const pedidosExistentes = await supabase.getPedidosByMesaExcluindo(
+          Number(userData.mesa_atual),
+          userData.id_restaurante,
+          'fechado',
+          isComandaMode ? phone : undefined
+        );
+        if (pedidosExistentes && pedidosExistentes.length > 0) {
+          pedidosAtivosContext = pedidosExistentes
+            .map((p: any) => `- Pedido #${p.id}: ${p.itens} (Qtd: ${p.quantidade || 1}, R$ ${p.Subtotal || '0.00'}) ${p.descricao ? `[Obs: ${p.descricao}]` : ''}`)
+            .join('\n');
+        }
+      } catch (err: any) {
+        console.warn(`[Agent] Não foi possível carregar pedidos existentes da mesa para o contexto: ${err.message}`);
+      }
+    }
+
     const result = await executor.invoke({
-      input: `CONTEXTO DO CLIENTE\nNome do cliente: ${clienteNome}\nTelefone: ${phone}\nMesa: ${userData.mesa_atual || 'Sem mesa'}\nModo de cobrança: ${modoCobranca}\n\nMensagem do cliente: ${message}`,
+      input: `CONTEXTO DO CLIENTE\nNome do cliente: ${clienteNome}\nTelefone: ${phone}\nMesa: ${userData.mesa_atual || 'Sem mesa'}\nModo de cobrança: ${modoCobranca}\n\n📋 PEDIDOS JÁ REGISTRADOS NESTA MESA (NÃO DUPLICAR COM Criar_pedido A MENOS QUE O CLIENTE PEÇA EXPLICITAMENTE MAIS UM ITEM):\n${pedidosAtivosContext}\n\nMensagem do cliente: ${message}`,
     });
 
     let output = result.output || 'Desculpe, não consegui processar sua mensagem. Tente novamente!';
