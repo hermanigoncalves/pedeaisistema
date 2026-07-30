@@ -17,16 +17,30 @@ class SupabaseAdapter {
   // ============================================================
 
   async getUserByPhone(phone: string, restauranteId?: string | null) {
+    if (!phone) return null;
+
+    const numOnly = phone.replace(/\D/g, '');
+    let altNum = numOnly;
+
+    if (numOnly.startsWith('55')) {
+      if (numOnly.length === 13 && numOnly.charAt(4) === '9') {
+        altNum = '55' + numOnly.substring(2, 4) + numOnly.substring(5);
+      } else if (numOnly.length === 12) {
+        altNum = '55' + numOnly.substring(2, 4) + '9' + numOnly.substring(4);
+      }
+    }
+
     let query = this.client
       .from('Usuários')
       .select('*')
-      .eq('telefone', phone);
+      .or(`telefone.eq.${numOnly},telefone.eq.${altNum}`);
 
     if (restauranteId) {
       query = query.eq('id_restaurante', restauranteId);
     }
 
     const { data, error } = await query
+      .order('ultimo_checkin', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
       .limit(1);
 
@@ -56,24 +70,8 @@ class SupabaseAdapter {
   }
 
   async getOrCreateUser(phone: string, name?: string, restauranteId?: string) {
-    let user = await this.getUserByPhone(phone, restauranteId);
-    if (!user) {
-      // Busca o restaurante padrão se não informado
-      let targetRestauranteId = restauranteId;
-      if (!targetRestauranteId) {
-        const { data: rest } = await this.client.from('restaurantes').select('id').limit(1).single();
-        targetRestauranteId = rest?.id || '00000000-0000-0000-0000-000000000000';
-      }
-
-      user = await this.createUser({
-        telefone: phone,
-        id_restaurante: targetRestauranteId,
-        mesa_atual: '0',
-        Status: 'Ativo',
-        quantas_vezes_foi: 1,
-      });
-    }
-    return user;
+    // Apenas consulta o usuário existente (não cria registro fantasma na mesa 0)
+    return this.getUserByPhone(phone, restauranteId);
   }
 
   // ============================================================

@@ -253,12 +253,22 @@ async function handleWebhookRequest(request: any, reply: any) {
         detectedRestaurante = await supabase.getRestauranteByWahaSession(instanceName, false);
       }
 
-      // Obter ou criar usuário associado ao restaurante correto
+      // Obter usuário associado ao restaurante correto
       const targetRestauranteId = detectedRestaurante?.id || undefined;
-      let userData = await supabase.getOrCreateUser(phone, senderName, targetRestauranteId);
+      let userData = await supabase.getUserByPhone(phone, targetRestauranteId);
+
+      // 7.5. Se não for fluxo de delivery e o cliente NÃO tiver check-in em mesa (mesa != 0), ignora sem responder nem criar usuário!
+      const reqPath = (request.url || '').toLowerCase();
+      const isDeliveryWebhook = reqPath.includes('/delivery');
+      const hasActiveCheckin = userData && userData.mesa_atual && userData.mesa_atual !== '0' && userData.mesa_atual !== 'Sem mesa';
+
+      if (!isDeliveryWebhook && !hasActiveCheckin) {
+        log.warn({ phone, mesa: userData?.mesa_atual || 0 }, '[PIPELINE] 🛑 Cliente sem cadastro/check-in ativo em mesa. Ignorando sem criar usuário nem responder.');
+        return;
+      }
 
       // Se a instância pertence a um restaurante diferente do cadastrado no usuário, atualiza o usuário no banco!
-      if (detectedRestaurante?.id && userData.id_restaurante !== detectedRestaurante.id) {
+      if (detectedRestaurante?.id && userData && userData.id_restaurante !== detectedRestaurante.id) {
         log.warn({ phone, oldRest: userData.id_restaurante, newRest: detectedRestaurante.id }, '[PIPELINE] 🔄 Atualizando id_restaurante do usuário para a instância atual');
         await supabase.client
           .from('Usuários')
@@ -266,17 +276,7 @@ async function handleWebhookRequest(request: any, reply: any) {
           .eq('id', userData.id);
         userData.id_restaurante = detectedRestaurante.id;
       }
-      restauranteId = detectedRestaurante?.id || userData.id_restaurante || null;
-
-      // 7.5. Se não for fluxo de delivery e o cliente NÃO tiver check-in em mesa (mesa = 0), ignora sem responder nada!
-      const reqPath = (request.url || '').toLowerCase();
-      const isDeliveryWebhook = reqPath.includes('/delivery');
-      const hasActiveCheckin = userData.mesa_atual && userData.mesa_atual !== '0' && userData.mesa_atual !== 'Sem mesa';
-
-      if (!isDeliveryWebhook && !hasActiveCheckin) {
-        log.warn({ phone, mesa: userData.mesa_atual }, '[PIPELINE] 🛑 Cliente sem check-in ativo em mesa (mesa_atual = 0). Ignorando sem responder.');
-        return;
-      }
+      restauranteId = detectedRestaurante?.id || userData?.id_restaurante || null;
 
       // 8. Salvar mensagem recebida
       if (userData.id_restaurante) {
