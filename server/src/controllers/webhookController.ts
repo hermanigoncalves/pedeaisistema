@@ -58,8 +58,8 @@ async function handleWebhookRequest(request: any, reply: any) {
     normalizedEvent === 'send.message' ||
     normalizedEvent.includes('message');
 
-  // Suporta estrutura WAHA (payload.session, payload.payload) e Evolution API (payload.data)
-  const wahaMsg = payload.payload || null;
+  // 1. Encontra a mensagem em qualquer nível do payload WAHA / Evolution
+  const wahaMsg = payload.payload || (payload.data && !payload.data.Info ? payload.data : null) || (payload.from || payload.chatId ? payload : null);
 
   let rawData = payload.data || {};
   if (Array.isArray(rawData)) {
@@ -68,19 +68,32 @@ async function handleWebhookRequest(request: any, reply: any) {
     rawData = rawData.messages[0] || {};
   }
 
-  const info = rawData.Info || {};
-  const key = rawData.key || {};
-  const message = rawData.Message || rawData.message || {};
+  const info = rawData.Info || payload.Info || {};
+  const key = rawData.key || payload.key || (wahaMsg?._data?.key) || {};
+  const message = rawData.Message || rawData.message || payload.Message || payload.message || {};
 
-  const isGroup = wahaMsg?.from?.endsWith('@g.us') || wahaMsg?.to?.endsWith('@g.us') || info.IsGroup || key.remoteJid?.endsWith('@g.us') || rawData.isGroup || false;
-  const isFromMe = wahaMsg?.fromMe ?? info.IsFromMe ?? key.fromMe ?? rawData.fromMe ?? false;
+  const isGroup = wahaMsg?.from?.endsWith('@g.us') || wahaMsg?.to?.endsWith('@g.us') || wahaMsg?.chatId?.endsWith('@g.us') || info.IsGroup || key.remoteJid?.endsWith('@g.us') || rawData.isGroup || false;
+  const isFromMe = wahaMsg?.fromMe ?? info.IsFromMe ?? key.fromMe ?? rawData.fromMe ?? payload.fromMe ?? false;
 
-  let remoteJid = wahaMsg?.from || '';
-  if (!remoteJid || remoteJid.includes('@lid')) {
-    remoteJid = wahaMsg?._data?.key?.remoteJid || wahaMsg?._data?.from || wahaMsg?.chatId || wahaMsg?.author || info.Chat || info.Sender || key.remoteJid || rawData.remoteJid || payload.sender || '';
-  }
+  // Extração exaustiva de remoteJid (WhatsApp JID do remetente)
+  let candidateJid =
+    (wahaMsg?.from && !wahaMsg.from.includes('@lid') ? wahaMsg.from : null) ||
+    (wahaMsg?.chatId && !wahaMsg.chatId.includes('@lid') ? wahaMsg.chatId : null) ||
+    wahaMsg?._data?.key?.remoteJid ||
+    wahaMsg?._data?.from ||
+    wahaMsg?.author ||
+    key.remoteJid ||
+    info.Chat ||
+    info.Sender ||
+    rawData.remoteJid ||
+    payload.from ||
+    payload.chatId ||
+    payload.sender ||
+    wahaMsg?.from ||
+    '';
 
-  const pushName = wahaMsg?._data?.notifyName || wahaMsg?.notifyName || info.PushName || rawData.pushName || payload.pushName || 'Cliente';
+  const remoteJid = candidateJid;
+  const pushName = wahaMsg?._data?.notifyName || wahaMsg?.notifyName || wahaMsg?._data?.pushName || info.PushName || rawData.pushName || payload.pushName || 'Cliente';
 
   // LOG diagnóstico
   log.warn({
@@ -132,10 +145,13 @@ async function handleWebhookRequest(request: any, reply: any) {
         if (wahaMsg.body) {
           rawText = wahaMsg.body;
           messageType = 'text';
+        } else if (typeof wahaMsg.text === 'string') {
+          rawText = wahaMsg.text;
+          messageType = 'text';
         }
-        if (wahaMsg.hasMedia && wahaMsg.media?.url) {
-          mediaUrl = wahaMsg.media.url;
-          const mime = (wahaMsg.media.mimetype || '').toLowerCase();
+        if (wahaMsg.hasMedia && (wahaMsg.media?.url || wahaMsg.mediaUrl)) {
+          mediaUrl = wahaMsg.media?.url || wahaMsg.mediaUrl;
+          const mime = (wahaMsg.media?.mimetype || wahaMsg.mimetype || '').toLowerCase();
           if (mime.startsWith('audio/')) {
             messageType = 'audio';
           } else if (mime.startsWith('image/')) {
@@ -146,7 +162,7 @@ async function handleWebhookRequest(request: any, reply: any) {
             if (wahaMsg.caption) rawText = wahaMsg.caption;
           } else {
             messageType = 'document';
-            fileName = wahaMsg.media.filename || 'documento';
+            fileName = wahaMsg.media?.filename || wahaMsg.filename || 'documento';
             if (wahaMsg.caption) rawText = wahaMsg.caption;
           }
         }
