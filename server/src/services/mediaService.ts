@@ -1,7 +1,7 @@
 import OpenAI, { toFile } from 'openai';
 import axios from 'axios';
 import { config } from '../config';
-import { evolution } from '../adapters/evolutionAdapter';
+import { waha, evolution } from '../adapters/wahaAdapter';
 import { supabase } from '../adapters/supabaseAdapter';
 
 const openai = new OpenAI({ apiKey: config.OPENAI_API_KEY });

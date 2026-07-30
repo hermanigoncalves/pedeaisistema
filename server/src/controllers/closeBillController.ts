@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { CloseBillPayload } from '../types';
-import { evolution } from '../adapters/evolutionAdapter';
+import { waha, evolution } from '../adapters/wahaAdapter';
 import { supabase } from '../adapters/supabaseAdapter';
 
 /**

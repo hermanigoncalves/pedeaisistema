@@ -26,12 +26,16 @@ export interface Restaurant {
   couvert_valor: number | null;
   evolution_instancia: string | null;
   evolution_apikey: string | null;
+  waha_session?: string | null;
+  waha_apikey?: string | null;
   personalidade_agente: string | null;
   exemplos_conversa: string | null;
   regras_estabelecimento: string | null;
   delivery_habilitado?: boolean | null;
   evolution_instancia_delivery?: string | null;
   evolution_apikey_delivery?: string | null;
+  waha_session_delivery?: string | null;
+  waha_apikey_delivery?: string | null;
   personalidade_agente_delivery?: string | null;
   regras_estabelecimento_delivery?: string | null;
   exemplos_conversa_delivery?: string | null;

@@ -1,7 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { supabase } from '../../adapters/supabaseAdapter';
-import { evolution } from '../../adapters/evolutionAdapter';
+import { waha, evolution } from '../../adapters/wahaAdapter';
 
 function isSystemMarkerItem(name: string): boolean {
   const n = name.toLowerCase();

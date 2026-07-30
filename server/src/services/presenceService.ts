@@ -1,4 +1,4 @@
-import { evolution } from '../adapters/evolutionAdapter';
+import { waha, evolution } from '../adapters/wahaAdapter';
 
 /**
  * Envia "digitando..." e aguarda delay.

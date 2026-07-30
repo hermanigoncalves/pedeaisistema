@@ -3,7 +3,7 @@ import { ChatOpenAI } from '@langchain/openai';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { config } from '../config';
 import { supabase } from '../adapters/supabaseAdapter';
-import { evolution } from '../adapters/evolutionAdapter';
+import { waha, evolution } from '../adapters/wahaAdapter';
 
 const LIMITE_ESTOQUE = 10;
 

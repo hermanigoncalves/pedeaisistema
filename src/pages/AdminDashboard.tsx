@@ -1176,22 +1176,22 @@ const AdminDashboard: React.FC = () => {
                                         {showAdvancedConfig && (
                                             <div className="space-y-4 p-4 bg-secondary/10 border border-border/20 rounded-2xl animate-in fade-in zoom-in-95 duration-200">
                                                 <div className="space-y-3">
-                                                    <h4 className="text-[10px] font-black uppercase text-primary tracking-wider pl-1">Conexão Evolution Go</h4>
+                                                    <h4 className="text-[10px] font-black uppercase text-primary tracking-wider pl-1">Conexão WAHA (WhatsApp API)</h4>
                                                     <div className="space-y-1.5">
-                                                        <Label htmlFor="evolution-instance" className="font-black text-[9px] uppercase text-muted-foreground pl-1">Nome da Instância</Label>
+                                                        <Label htmlFor="evolution-instance" className="font-black text-[9px] uppercase text-muted-foreground pl-1">Sessão WAHA</Label>
                                                         <Input
                                                             id="evolution-instance"
-                                                            placeholder="Ex: Pizzaria_Real_Bot"
+                                                            placeholder="Ex: default"
                                                             value={newRestaurant.evolution_instancia}
                                                             onChange={e => setNewRestaurant({ ...newRestaurant, evolution_instancia: e.target.value })}
                                                             className="bg-white border border-border/40 rounded-xl h-10 text-xs focus-visible:ring-primary shadow-sm"
                                                         />
                                                     </div>
                                                     <div className="space-y-1.5">
-                                                        <Label htmlFor="evolution-apikey" className="font-black text-[9px] uppercase text-muted-foreground pl-1">Evolution API Key</Label>
+                                                        <Label htmlFor="evolution-apikey" className="font-black text-[9px] uppercase text-muted-foreground pl-1">WAHA API Key</Label>
                                                         <Input
                                                             id="evolution-apikey"
-                                                            placeholder="Deixe em branco para usar a global"
+                                                            placeholder="Deixe em branco para usar a chave global"
                                                             value={newRestaurant.evolution_apikey}
                                                             onChange={e => setNewRestaurant({ ...newRestaurant, evolution_apikey: e.target.value })}
                                                             className="bg-white border border-border/40 rounded-xl h-10 text-xs focus-visible:ring-primary shadow-sm"
@@ -1244,22 +1244,22 @@ const AdminDashboard: React.FC = () => {
                                                             </div>
 
                                                             <div className="space-y-3 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
-                                                                <h5 className="text-[9px] font-black uppercase text-emerald-700 tracking-wider">Conexão Evolution Go (Delivery)</h5>
+                                                                <h5 className="text-[9px] font-black uppercase text-emerald-700 tracking-wider">Conexão WAHA (Delivery)</h5>
                                                                 <div className="space-y-1.5">
-                                                                    <Label htmlFor="evolution-instancia-delivery" className="font-black text-[9px] uppercase text-muted-foreground pl-1">Nome da Instância Delivery</Label>
+                                                                    <Label htmlFor="evolution-instancia-delivery" className="font-black text-[9px] uppercase text-muted-foreground pl-1">Sessão WAHA Delivery</Label>
                                                                     <Input
                                                                         id="evolution-instancia-delivery"
-                                                                        placeholder="Ex: Pizzaria_Real_Delivery_Bot"
+                                                                        placeholder="Ex: default"
                                                                         value={newRestaurant.evolution_instancia_delivery}
                                                                         onChange={e => setNewRestaurant({ ...newRestaurant, evolution_instancia_delivery: e.target.value })}
                                                                         className="bg-white border border-border/40 rounded-xl h-10 text-xs focus-visible:ring-primary shadow-sm"
                                                                     />
                                                                 </div>
                                                                 <div className="space-y-1.5">
-                                                                    <Label htmlFor="evolution-apikey-delivery" className="font-black text-[9px] uppercase text-muted-foreground pl-1">Evolution API Key (Delivery)</Label>
+                                                                    <Label htmlFor="evolution-apikey-delivery" className="font-black text-[9px] uppercase text-muted-foreground pl-1">WAHA API Key (Delivery)</Label>
                                                                     <Input
                                                                         id="evolution-apikey-delivery"
-                                                                        placeholder="Deixe em branco para usar a global"
+                                                                        placeholder="Deixe em branco para usar a chave global"
                                                                         value={newRestaurant.evolution_apikey_delivery}
                                                                         onChange={e => setNewRestaurant({ ...newRestaurant, evolution_apikey_delivery: e.target.value })}
                                                                         className="bg-white border border-border/40 rounded-xl h-10 text-xs focus-visible:ring-primary shadow-sm"

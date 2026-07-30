@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { evolution } from '../adapters/evolutionAdapter';
+import { waha, evolution } from '../adapters/wahaAdapter';
 import { supabase } from '../adapters/supabaseAdapter';
 
 export function registerChatRoutes(app: FastifyInstance) {

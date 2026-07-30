@@ -4,7 +4,7 @@ import { normalizePhone } from '../services/phoneNormalizer';
 import { pushToBuffer, waitAndCollect } from '../services/messageBuffer';
 import { transcribeAudio, analyzeImage, downloadAndProcess } from '../services/mediaService';
 import { sendTypingAndWait } from '../services/presenceService';
-import { evolution } from '../adapters/evolutionAdapter';
+import { waha, evolution } from '../adapters/wahaAdapter';
 import { supabase } from '../adapters/supabaseAdapter';
 import { runAgent } from '../agents/pedeaiAgent';
 
@@ -48,39 +48,62 @@ async function handleWebhookRequest(request: any, reply: any) {
   const payload = request.body as any;
   const log = request.log;
 
-  const event = payload.event || '';
-  const data = payload.data || {};
-  const info = data.Info || {};
-  const message = data.Message || {};
+  const rawEvent = (payload.event || payload.type || '').toString();
+  const normalizedEvent = rawEvent.toLowerCase();
+
+  // Aceita "Message", "messages.upsert", "messages_upsert", "send.message" ou qualquer variação com "message"
+  const isMessageEvent = normalizedEvent === 'message' ||
+    normalizedEvent.includes('messages.upsert') ||
+    normalizedEvent.includes('messages_upsert') ||
+    normalizedEvent === 'send.message' ||
+    normalizedEvent.includes('message');
+
+  // Suporta estrutura WAHA (payload.session, payload.payload) e Evolution API (payload.data)
+  const wahaMsg = payload.payload || null;
+
+  let rawData = payload.data || {};
+  if (Array.isArray(rawData)) {
+    rawData = rawData[0] || {};
+  } else if (Array.isArray(rawData.messages)) {
+    rawData = rawData.messages[0] || {};
+  }
+
+  const info = rawData.Info || {};
+  const key = rawData.key || {};
+  const message = rawData.Message || rawData.message || {};
+
+  const isGroup = wahaMsg?.from?.endsWith('@g.us') || wahaMsg?.to?.endsWith('@g.us') || info.IsGroup || key.remoteJid?.endsWith('@g.us') || rawData.isGroup || false;
+  const isFromMe = wahaMsg?.fromMe ?? info.IsFromMe ?? key.fromMe ?? rawData.fromMe ?? false;
+  const remoteJid = wahaMsg?.from || wahaMsg?.chatId || info.Chat || info.Sender || key.remoteJid || rawData.remoteJid || payload.sender || '';
+  const pushName = wahaMsg?._data?.notifyName || wahaMsg?.notifyName || info.PushName || rawData.pushName || payload.pushName || 'Cliente';
 
   // LOG diagnóstico
   log.warn({
-    event,
-    hasInfo: !!data.Info,
-    sender: info.Sender?.slice(0, 15),
-    isFromMe: info.IsFromMe,
-    isGroup: info.IsGroup,
-    type: info.Type,
-    pushName: info.PushName,
+    rawEvent,
+    isMessageEvent,
+    remoteJid,
+    isFromMe,
+    isGroup,
+    pushName,
+    session: payload.session || payload.instance,
   }, `[WEBHOOK PEDEAI] Evento recebido`);
 
-  // 1. Só processa evento "Message"
-  if (event !== 'Message') {
-    return reply.code(200).send({ ignored: true, reason: `event=${event}` });
+  // 1. Só processa eventos de mensagem
+  if (!isMessageEvent) {
+    return reply.code(200).send({ ignored: true, reason: `event=${rawEvent}` });
   }
 
   // 2. Ignora grupos
-  if (info.IsGroup) {
+  if (isGroup) {
     return reply.code(200).send({ ignored: true, reason: 'group' });
   }
 
   // 3. Ignora mensagens enviadas por nós
-  if (info.IsFromMe) {
+  if (isFromMe) {
     return reply.code(200).send({ ignored: true, reason: 'fromMe' });
   }
 
   // 4. Extrai remoteJid
-  const remoteJid = info.Chat || info.Sender || '';
   if (!remoteJid) {
     return reply.code(200).send({ ignored: true, reason: 'no jid' });
   }
@@ -93,35 +116,64 @@ async function handleWebhookRequest(request: any, reply: any) {
     let restauranteId: string | null = null;
     try {
       const phone = normalizePhone(remoteJid);
-      const senderName = info.PushName || 'Cliente';
+      const senderName = pushName;
 
       let messageType: MessageType = 'unknown';
       let rawText = '';
       let mediaUrl = '';
       let fileName = '';
 
-      if (message.conversation) {
-        messageType = 'text';
-        rawText = message.conversation;
-      } else if (message.extendedTextMessage?.text) {
-        messageType = 'text';
-        rawText = message.extendedTextMessage.text;
-      } else if (message.audioMessage) {
-        messageType = 'audio';
-        mediaUrl = message.audioMessage.url || message.mediaUrl || '';
-      } else if (message.imageMessage) {
-        messageType = 'image';
-        mediaUrl = message.imageMessage.url || message.mediaUrl || '';
-        rawText = message.imageMessage.caption || '';
-      } else if (message.videoMessage) {
-        messageType = 'video';
-        mediaUrl = message.videoMessage.url || message.mediaUrl || '';
-        rawText = message.videoMessage.caption || '';
-      } else if (message.documentMessage) {
-        messageType = 'document';
-        mediaUrl = message.documentMessage.url || message.mediaUrl || '';
-        fileName = message.documentMessage.fileName || message.documentMessage.title || 'documento';
-        rawText = message.documentMessage.caption || '';
+      if (wahaMsg) {
+        if (wahaMsg.body) {
+          rawText = wahaMsg.body;
+          messageType = 'text';
+        }
+        if (wahaMsg.hasMedia && wahaMsg.media?.url) {
+          mediaUrl = wahaMsg.media.url;
+          const mime = (wahaMsg.media.mimetype || '').toLowerCase();
+          if (mime.startsWith('audio/')) {
+            messageType = 'audio';
+          } else if (mime.startsWith('image/')) {
+            messageType = 'image';
+            if (wahaMsg.caption) rawText = wahaMsg.caption;
+          } else if (mime.startsWith('video/')) {
+            messageType = 'video';
+            if (wahaMsg.caption) rawText = wahaMsg.caption;
+          } else {
+            messageType = 'document';
+            fileName = wahaMsg.media.filename || 'documento';
+            if (wahaMsg.caption) rawText = wahaMsg.caption;
+          }
+        }
+      }
+
+      if (messageType === 'unknown') {
+        if (message.conversation) {
+          messageType = 'text';
+          rawText = message.conversation;
+        } else if (message.extendedTextMessage?.text) {
+          messageType = 'text';
+          rawText = message.extendedTextMessage.text;
+        } else if (typeof message === 'string') {
+          messageType = 'text';
+          rawText = message;
+        } else if (message.audioMessage) {
+          messageType = 'audio';
+          mediaUrl = message.audioMessage.url || message.mediaUrl || '';
+        } else if (message.imageMessage) {
+          messageType = 'image';
+          mediaUrl = message.imageMessage.url || message.mediaUrl || '';
+          rawText = message.imageMessage.caption || '';
+        } else if (message.videoMessage) {
+          messageType = 'video';
+          mediaUrl = message.videoMessage.url || message.mediaUrl || '';
+          rawText = message.videoMessage.caption || '';
+        } else if (message.documentMessage) {
+          messageType = 'document';
+          mediaUrl = message.documentMessage.url || message.mediaUrl || '';
+          fileName = message.documentMessage.fileName || message.documentMessage.title || 'documento';
+          rawText = message.documentMessage.caption || '';
+        }
       }
 
       if (messageType === 'unknown') {
@@ -168,13 +220,13 @@ async function handleWebhookRequest(request: any, reply: any) {
 
       log.warn({ phone, collectedMessage }, '[PIPELINE] Mensagem coletada do buffer. Processando...');
 
-      // 7. Resolver restaurante dinamicamente pela Instância Evolution recebida no webhook
-      const instanceName = payload.instance || payload.instanceId || info.Instance || '';
+      // 7. Resolver restaurante dinamicamente pela Sessão WAHA / Instância Evolution recebida no webhook
+      const instanceName = payload.session || payload.instance || payload.instanceId || info.Instance || '';
       let detectedRestaurante = null;
 
       if (instanceName) {
-        log.warn({ instanceName }, '[PIPELINE] Buscando restaurante pela instância Evolution...');
-        detectedRestaurante = await supabase.getRestauranteByEvolutionInstance(instanceName, false);
+        log.warn({ instanceName }, '[PIPELINE] Buscando restaurante pela sessão WAHA / instância...');
+        detectedRestaurante = await supabase.getRestauranteByWahaSession(instanceName, false);
       }
 
       // Obter ou criar usuário associado ao restaurante correto

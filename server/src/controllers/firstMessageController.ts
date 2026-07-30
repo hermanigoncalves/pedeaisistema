@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { FirstMessagePayload } from '../types';
-import { evolution } from '../adapters/evolutionAdapter';
+import { waha, evolution } from '../adapters/wahaAdapter';
 import { sendTypingAndWait } from '../services/presenceService';
 import { clearMemory } from '../agents/pedeaiAgent';
 import { normalizePhone } from '../services/phoneNormalizer';
