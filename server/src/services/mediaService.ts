@@ -8,29 +8,42 @@ const openai = new OpenAI({ apiKey: config.OPENAI_API_KEY });
 
 /**
  * Transcreve áudio usando OpenAI Whisper.
- * Suporta URLs (http/https), Data URIs (data:audio/...) e Base64 cru.
+ * Suporta Buffer, URLs (http/https), Data URIs (data:audio/...) e Base64 cru.
  */
-export async function transcribeAudio(input: string): Promise<string> {
+export async function transcribeAudio(input: Buffer | string): Promise<string> {
   try {
     let buffer: Buffer;
 
-    if (!input || !input.trim()) {
-      console.warn('[Media] ⚠️ Entradas de áudio vazia para transcrição');
+    if (!input) {
+      console.warn('[Media] ⚠️ Entrada de áudio vazia para transcrição');
       return '[Áudio sem conteúdo]';
     }
 
-    const trimmed = input.trim();
+    if (Buffer.isBuffer(input)) {
+      buffer = input;
+    } else if (typeof input === 'string') {
+      const trimmed = input.trim();
+      if (!trimmed) {
+        return '[Áudio sem conteúdo]';
+      }
 
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-      console.log('[Media] 🌐 Baixando arquivo de áudio da URL...');
-      const response = await axios.get(trimmed, { responseType: 'arraybuffer' });
-      buffer = Buffer.from(response.data);
-    } else if (trimmed.startsWith('data:')) {
-      const parts = trimmed.split(',');
-      const base64Data = parts[1] || parts[0];
-      buffer = Buffer.from(base64Data, 'base64');
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        console.log('[Media] 🌐 Baixando arquivo de áudio da URL com autenticação...');
+        const response = await axios.get(trimmed, {
+          responseType: 'arraybuffer',
+          headers: { 'X-Api-Key': config.WAHA_API_KEY || config.EVOLUTION_API_KEY },
+          timeout: 15000,
+        });
+        buffer = Buffer.from(response.data);
+      } else if (trimmed.startsWith('data:')) {
+        const parts = trimmed.split(',');
+        const base64Data = parts[1] || parts[0];
+        buffer = Buffer.from(base64Data, 'base64');
+      } else {
+        buffer = Buffer.from(trimmed, 'base64');
+      }
     } else {
-      buffer = Buffer.from(trimmed, 'base64');
+      return '[Áudio inválido]';
     }
 
     if (!buffer || buffer.length === 0) {
@@ -56,25 +69,46 @@ export async function transcribeAudio(input: string): Promise<string> {
 
 /**
  * Analisa imagem usando OpenAI Vision (GPT-4o-mini).
- * Equivalente ao fluxo: baixa_imagem → Convert to File → OpenAI1 (analyze image)
  */
-export async function analyzeImage(base64Data: string): Promise<string> {
+export async function analyzeImage(input: Buffer | string): Promise<string> {
   try {
+    let base64Image = '';
+
+    if (Buffer.isBuffer(input)) {
+      base64Image = `data:image/jpeg;base64,${input.toString('base64')}`;
+    } else if (typeof input === 'string') {
+      const trimmed = input.trim();
+      if (trimmed.startsWith('data:image')) {
+        base64Image = trimmed;
+      } else if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        const res = await axios.get(trimmed, {
+          responseType: 'arraybuffer',
+          headers: { 'X-Api-Key': config.WAHA_API_KEY || config.EVOLUTION_API_KEY },
+          timeout: 15000,
+        });
+        const mime = res.headers['content-type'] || 'image/jpeg';
+        base64Image = `data:${mime};base64,${Buffer.from(res.data).toString('base64')}`;
+      } else {
+        base64Image = `data:image/jpeg;base64,${trimmed}`;
+      }
+    }
+
+    if (!base64Image) {
+      return '[Imagem sem conteúdo]';
+    }
+
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
           role: 'user',
           content: [
-            { type: 'text', text: 'Descreva essa imagem' },
-            {
-              type: 'image_url',
-              image_url: { url: `data:image/jpeg;base64,${base64Data}` },
-            },
+            { type: 'text', text: 'Descreva resumidamente o conteúdo desta imagem enviada pelo cliente do restaurante (prato, comprovante, cardápio, etc).' },
+            { type: 'image_url', image_url: { url: base64Image } },
           ],
         },
       ],
-      max_tokens: 500,
+      max_tokens: 150,
     });
 
     const description = response.choices[0]?.message?.content || '[Imagem não identificada]';
@@ -88,7 +122,7 @@ export async function analyzeImage(base64Data: string): Promise<string> {
 
 /**
  * Baixa mídia e processa (transcrição ou análise visual).
- * Usa Evolution Go /message/downloadimage.
+ * Suporta WAHA e Evolution API.
  */
 export async function downloadAndProcess(
   restauranteId: string | null | undefined,
@@ -96,17 +130,15 @@ export async function downloadAndProcess(
   type: 'audio' | 'image',
 ): Promise<string> {
   try {
-    const mediaData = await evolution.downloadMedia(restauranteId, rawMessage);
-    const base64 = mediaData.base64Data || mediaData.base64 || '';
-
-    if (!base64) {
-      console.warn('[Media] ⚠️ Base64 vazio após download');
+    const buffer = await waha.downloadMedia(restauranteId, rawMessage);
+    if (!buffer || buffer.length === 0) {
+      console.warn('[Media] ⚠️ Buffer de mídia vazio após download');
       return type === 'audio' ? '[Áudio sem conteúdo]' : '[Imagem sem conteúdo]';
     }
 
     return type === 'audio'
-      ? await transcribeAudio(base64)
-      : await analyzeImage(base64);
+      ? await transcribeAudio(buffer)
+      : await analyzeImage(buffer);
   } catch (err: any) {
     console.error(`[Media] ❌ Erro download ${type}:`, err.message);
     return `[${type === 'audio' ? 'Áudio' : 'Imagem'} indisponível]`;
@@ -131,52 +163,9 @@ export async function uploadMediaBuffer(buffer: Buffer, mimeType: string, extens
     throw error;
   }
 
-  const { data } = supabase.client.storage.from('media').getPublicUrl(path);
+  const { data } = supabase.client.storage
+    .from('media')
+    .getPublicUrl(path);
+
   return data.publicUrl;
-}
-
-/**
- * Baixa a mídia recebida e faz upload no Supabase Storage.
- * Retorna a URL pública da mídia.
- */
-export async function saveIncomingMedia(
-  restauranteId: string | null | undefined,
-  message: any,
-  type: 'audio' | 'image' | 'video' | 'document',
-): Promise<string> {
-  try {
-    let base64 = message.base64 || '';
-    if (!base64) {
-      const mediaData = await evolution.downloadMedia(restauranteId, message);
-      base64 = mediaData.base64Data || mediaData.base64 || '';
-    }
-
-    if (!base64) {
-      console.warn('[Media] ⚠️ Não foi possível obter base64 da mídia recebida');
-      return '';
-    }
-
-    const buffer = Buffer.from(base64, 'base64');
-    let mimeType = 'application/octet-stream';
-    let extension = 'bin';
-
-    if (type === 'audio') {
-      mimeType = 'audio/ogg';
-      extension = 'ogg';
-    } else if (type === 'image') {
-      mimeType = 'image/jpeg';
-      extension = 'jpg';
-    } else if (type === 'video') {
-      mimeType = 'video/mp4';
-      extension = 'mp4';
-    } else if (type === 'document') {
-      mimeType = message.documentMessage?.mimetype || 'application/pdf';
-      extension = mimeType.split('/').pop() || 'pdf';
-    }
-
-    return await uploadMediaBuffer(buffer, mimeType, extension);
-  } catch (err: any) {
-    console.error('[Media] ❌ Erro ao salvar mídia recebida no Supabase:', err.message);
-    return '';
-  }
 }

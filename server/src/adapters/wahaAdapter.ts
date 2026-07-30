@@ -338,8 +338,20 @@ class WahaAdapter {
    */
   async downloadMedia(restauranteId: string | null, rawMessage: any): Promise<Buffer | null> {
     try {
-      const mediaUrl = rawMessage?.media?.url || rawMessage?.url || rawMessage?.file?.url;
-      if (!mediaUrl) return null;
+      const mediaUrl =
+        rawMessage?.media?.url ||
+        rawMessage?.mediaUrl ||
+        rawMessage?.url ||
+        rawMessage?.file?.url ||
+        rawMessage?._data?.Message?.audioMessage?.url ||
+        rawMessage?._data?.Message?.imageMessage?.url ||
+        rawMessage?._data?.Message?.videoMessage?.url ||
+        rawMessage?._data?.Message?.documentMessage?.url;
+
+      if (!mediaUrl) {
+        console.warn(`[WAHA API] ⚠️ Nenhuma URL de mídia encontrada no payload`);
+        return null;
+      }
 
       const { axiosClient } = await this.getClientForRestaurante(restauranteId);
       const res = await axiosClient.get(mediaUrl, { responseType: 'arraybuffer' });
