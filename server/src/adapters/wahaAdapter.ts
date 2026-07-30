@@ -44,6 +44,33 @@ function toWahaChatId(number: string): string {
   return `${clean}@c.us`;
 }
 
+function getAlternateChatId(chatId: string): string | null {
+  if (!chatId) return null;
+  const numOnly = chatId.split('@')[0].replace(/\D/g, '');
+  const domain = chatId.includes('@s.whatsapp.net') ? '@s.whatsapp.net' : '@c.us';
+
+  if (!numOnly.startsWith('55')) return null;
+
+  // Se tem 13 dígitos (55 + DDD + 9 + 8 dígitos), tenta sem o 9 (12 dígitos)
+  if (numOnly.length === 13) {
+    const ddd = numOnly.substring(2, 4);
+    const ninth = numOnly.substring(4, 5);
+    if (ninth === '9') {
+      const altNum = '55' + ddd + numOnly.substring(5);
+      return `${altNum}${domain}`;
+    }
+  }
+
+  // Se tem 12 dígitos (55 + DDD + 8 dígitos), tenta com o 9 (13 dígitos)
+  if (numOnly.length === 12) {
+    const ddd = numOnly.substring(2, 4);
+    const altNum = '55' + ddd + '9' + numOnly.substring(4);
+    return `${altNum}${domain}`;
+  }
+
+  return null;
+}
+
 /**
  * Adapter para comunicação com a API WAHA (WhatsApp HTTP API).
  * Docs: https://waha.devlike.pro/docs/
@@ -221,7 +248,24 @@ class WahaAdapter {
         console.log(`[WAHA API] ✅ Texto enviado para ${chatId} (Sessão: ${sessionName})`);
       } catch (err: any) {
         const errObj = err.response?.data;
-        // Se deu erro de sessão inexistente, força atualização de cache e tenta 1x mais com a sessão ativa
+        const errMsg = JSON.stringify(errObj || err.message || '');
+
+        // 1. Se deu erro 'no LID found' (incompatibilidade do 9º dígito no WhatsApp), tenta o formato alternativo
+        if (errMsg.includes('no LID found')) {
+          const altChatId = getAlternateChatId(chatId);
+          if (altChatId) {
+            console.warn(`[WAHA API] ⚠️ Erro 'no LID found' para ${chatId}. Tentando número alternativo: ${altChatId}...`);
+            await axiosClient.post('/api/sendText', {
+              session: sessionName,
+              chatId: altChatId,
+              text: messageText,
+            });
+            console.log(`[WAHA API] ✅ Texto enviado com sucesso para número alternativo ${altChatId} (Sessão: ${sessionName})`);
+            return;
+          }
+        }
+
+        // 2. Se deu erro de sessão inexistente, força atualização de cache e tenta 1x mais com a sessão ativa
         if (errObj?.error && typeof errObj.error === 'string' && errObj.error.includes('does not exist')) {
           console.warn(`[WAHA API] ⚠️ Sessão '${sessionName}' não encontrada. Buscando sessões ativas do container...`);
           const resolved = await this.getWorkingSession(sessionName, axiosClient, true);
