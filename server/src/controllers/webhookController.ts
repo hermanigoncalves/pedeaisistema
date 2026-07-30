@@ -268,6 +268,16 @@ async function handleWebhookRequest(request: any, reply: any) {
       }
       restauranteId = detectedRestaurante?.id || userData.id_restaurante || null;
 
+      // 7.5. Se não for fluxo de delivery e o cliente NÃO tiver check-in em mesa (mesa = 0), ignora sem responder nada!
+      const reqPath = (request.url || '').toLowerCase();
+      const isDeliveryWebhook = reqPath.includes('/delivery');
+      const hasActiveCheckin = userData.mesa_atual && userData.mesa_atual !== '0' && userData.mesa_atual !== 'Sem mesa';
+
+      if (!isDeliveryWebhook && !hasActiveCheckin) {
+        log.warn({ phone, mesa: userData.mesa_atual }, '[PIPELINE] 🛑 Cliente sem check-in ativo em mesa (mesa_atual = 0). Ignorando sem responder.');
+        return;
+      }
+
       // 8. Salvar mensagem recebida
       if (userData.id_restaurante) {
         try {
