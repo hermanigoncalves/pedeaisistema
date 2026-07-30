@@ -68,23 +68,26 @@ async function handleWebhookRequest(request: any, reply: any) {
     rawData = rawData.messages[0] || {};
   }
 
-  const info = rawData.Info || payload.Info || {};
+  const info = wahaMsg?._data?.Info || rawData.Info || payload.Info || {};
   const key = rawData.key || payload.key || (wahaMsg?._data?.key) || {};
-  const message = rawData.Message || rawData.message || payload.Message || payload.message || {};
+  const message = wahaMsg?._data?.Message || rawData.Message || rawData.message || payload.Message || payload.message || {};
 
   const isGroup = wahaMsg?.from?.endsWith('@g.us') || wahaMsg?.to?.endsWith('@g.us') || wahaMsg?.chatId?.endsWith('@g.us') || info.IsGroup || key.remoteJid?.endsWith('@g.us') || rawData.isGroup || false;
-  const isFromMe = wahaMsg?.fromMe ?? info.IsFromMe ?? key.fromMe ?? rawData.fromMe ?? payload.fromMe ?? false;
+  const isFromMe = info.IsFromMe ?? wahaMsg?.fromMe ?? key.fromMe ?? rawData.fromMe ?? payload.fromMe ?? false;
 
   // Extração exaustiva de remoteJid (WhatsApp JID do remetente)
+  // Prioriza SenderAlt quando o remetente utiliza LID (@lid)
   let candidateJid =
+    (info.SenderAlt && !info.SenderAlt.includes('@lid') ? info.SenderAlt : null) ||
+    (info.ChatAlt && !info.ChatAlt.includes('@lid') ? info.ChatAlt : null) ||
     (wahaMsg?.from && !wahaMsg.from.includes('@lid') ? wahaMsg.from : null) ||
     (wahaMsg?.chatId && !wahaMsg.chatId.includes('@lid') ? wahaMsg.chatId : null) ||
     wahaMsg?._data?.key?.remoteJid ||
     wahaMsg?._data?.from ||
     wahaMsg?.author ||
     key.remoteJid ||
-    info.Chat ||
-    info.Sender ||
+    (info.Chat && !info.Chat.includes('@lid') ? info.Chat : null) ||
+    (info.Sender && !info.Sender.includes('@lid') ? info.Sender : null) ||
     rawData.remoteJid ||
     payload.from ||
     payload.chatId ||
@@ -93,7 +96,7 @@ async function handleWebhookRequest(request: any, reply: any) {
     '';
 
   const remoteJid = candidateJid;
-  const pushName = wahaMsg?._data?.notifyName || wahaMsg?.notifyName || wahaMsg?._data?.pushName || info.PushName || rawData.pushName || payload.pushName || 'Cliente';
+  const pushName = info.PushName || wahaMsg?._data?.notifyName || wahaMsg?.notifyName || wahaMsg?._data?.pushName || rawData.pushName || payload.pushName || 'Cliente';
 
   // LOG diagnóstico
   log.warn({
