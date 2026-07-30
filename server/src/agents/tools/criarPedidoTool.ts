@@ -101,7 +101,7 @@ function findBestMatch(
 export function criarPedidoTool(userData: { mesa_atual: string; id_restaurante: string; telefone: string }) {
   return new DynamicStructuredTool({
     name: 'Criar_pedido',
-    description: 'Cria um novo pedido para o cliente na mesa atual. IMPORTANTE: o campo "itens" deve conter o nome EXATO do produto como aparece no cardápio (retorno de Produtos_cardapio). Customizações (tipo de massa, molho, copos, sabores) vão no campo "descricao".',
+    description: 'Cria um novo pedido para o cliente na mesa atual. ⚠️ ATENÇÃO: Você é SUMARIAMENTE PROIBIDO de executar esta tool na mensagem inicial do cliente sem antes ter perguntado e obtido a CONFIRMAÇÃO PRÉVIA dele ("sim", "confirmo", etc.). Se o pedido for vinho e o cliente não tiver escolhido o rótulo específico, você também está PROIBIDO de executar esta tool antes que ele escolha. IMPORTANTE: o campo "itens" deve conter o nome EXATO do produto (retorno de Produtos_cardapio). Customizações vão no campo "descricao".',
     schema: z.object({
       itens: z.string().describe('Nome EXATO do produto como aparece no cardápio (Produtos_cardapio). NUNCA coloque customizações aqui. Exemplo: "Skol 600ml", "Pizza Meia a Meia", "Massa Putanesca"'),
       Subtotal: z.string().describe('O valor total do pedido calculado exclusivamente como (quantidade física do produto * preço unitário do cardápio). Exemplo: 1 cerveja de R$12.00 com 3 copos = Subtotal: "12.00". NUNCA multiplique o subtotal pela quantidade de copos, pois os copos extras são gratuitos!'),
