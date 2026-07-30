@@ -205,10 +205,24 @@ async function handleWebhookRequest(request: any, reply: any) {
         return;
       }
 
+      let publicMediaUrl = '';
+
       // Transcrição de áudio se necessário
       if (messageType === 'audio') {
         log.warn({ restauranteId }, '[PIPELINE] Baixando e transcrevendo áudio...');
-        rawText = await downloadAndProcess(restauranteId, wahaMsg || rawData, 'audio');
+        const audioBuffer = await waha.downloadMedia(restauranteId, wahaMsg || rawData);
+        if (audioBuffer && audioBuffer.length > 0) {
+          rawText = await transcribeAudio(audioBuffer);
+          try {
+            publicMediaUrl = await uploadMediaBuffer(audioBuffer, 'audio/ogg', 'ogg');
+            log.warn({ publicMediaUrl }, '[PIPELINE] 🎧 Áudio salvo no Supabase Storage com sucesso');
+          } catch (uploadErr: any) {
+            log.error({ err: uploadErr.message }, '[PIPELINE] Aviso: falha ao salvar áudio no Supabase Storage');
+          }
+        } else {
+          rawText = await downloadAndProcess(restauranteId, wahaMsg || rawData, 'audio');
+        }
+
         if (!rawText || rawText.includes('[Áudio') || rawText.includes('[Mídia')) {
           const fallbackInput = wahaMsg?.media?.url || message.base64 ? `data:audio/ogg;base64,${message.base64}` : mediaUrl;
           if (fallbackInput) {
@@ -278,9 +292,10 @@ async function handleWebhookRequest(request: any, reply: any) {
       }
       restauranteId = detectedRestaurante?.id || userData?.id_restaurante || null;
 
-      // 8. Salvar mensagem recebida
-      if (userData.id_restaurante) {
+      // 8. Salvar mensagem recebida no Supabase (com metadata da mídia se houver)
+      if (userData && userData.id_restaurante) {
         try {
+          const finalMediaUrl = publicMediaUrl || mediaUrl;
           await supabase.saveMensagem({
             restaurante_id: userData.id_restaurante,
             telefone: phone,
@@ -288,6 +303,7 @@ async function handleWebhookRequest(request: any, reply: any) {
             conteudo: collectedMessage,
             tipo: messageType,
             direcao: 'recebida',
+            metadata: finalMediaUrl ? { media_url: finalMediaUrl, url: finalMediaUrl } : undefined,
           });
         } catch (err: any) {
           log.error({ err: err.message }, '[PIPELINE] Erro ao salvar mensagem recebida');
