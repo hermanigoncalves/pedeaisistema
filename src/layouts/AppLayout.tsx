@@ -7,7 +7,6 @@ import WelcomeModal from '@/components/onboarding/WelcomeModal';
 import TourGuide from '@/components/onboarding/TourGuide';
 import ShortcutHelp from '@/components/ui/ShortcutHelp';
 import OfflineIndicator from '@/components/ui/OfflineIndicator';
-import PasswordModal from '@/components/dashboard/PasswordModal';
 import { useNavigationShortcuts, useActionShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useNotifications } from '@/hooks/useNotifications';
 import { backupService } from '@/lib/backup-service';
@@ -22,15 +21,7 @@ const ROUTE_MAP: Record<string, string> = {
   '/conversas': 'conversations',
 };
 
-// Protected routes that require password
-const PROTECTED_ROUTES = new Set(['/dashboard', '/analytics', '/conversas']);
-
-const ROUTE_LABELS: Record<string, { title: string; description: string }> = {
-  '/dashboard': { title: 'Acesso ao Dashboard', description: 'Digite a senha do restaurante para acessar o dashboard' },
-  '/analytics': { title: 'Acesso ao Analytics', description: 'Digite a senha do restaurante para ver analytics' },
-  '/conversas': { title: 'Acesso às Conversas', description: 'Digite a senha do restaurante para ver as conversas' },
-};
-
+// AppLayout sem exigência repetitiva de senha para usuários autenticados
 const AppLayout: React.FC = () => {
   const { isAuthenticated, loadingData, restaurantId } = useApp();
   const location = useLocation();
@@ -39,11 +30,6 @@ const AppLayout: React.FC = () => {
   const [runTour, setRunTour] = useState(false);
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
   const { requestPermission, isEnabled } = useNotifications();
-
-  // Password protection
-  const [unlockedRoutes, setUnlockedRoutes] = useState<Set<string>>(new Set());
-  const [pendingRoute, setPendingRoute] = useState<string | null>(null);
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   // Shortcuts
   useNavigationShortcuts();
@@ -74,31 +60,6 @@ const AppLayout: React.FC = () => {
     }
   }, [isAuthenticated]);
 
-  // Check route protection on navigation
-  useEffect(() => {
-    const path = location.pathname;
-    if (PROTECTED_ROUTES.has(path) && !unlockedRoutes.has(path)) {
-      setPendingRoute(path);
-      setIsPasswordModalOpen(true);
-      // Navigate back to home while password modal is open
-      navigate('/', { replace: true });
-    }
-  }, [location.pathname, unlockedRoutes, navigate]);
-
-  const handlePasswordSuccess = () => {
-    if (pendingRoute) {
-      setUnlockedRoutes(prev => new Set([...prev, pendingRoute]));
-      navigate(pendingRoute);
-      setPendingRoute(null);
-    }
-    setIsPasswordModalOpen(false);
-  };
-
-  const handlePasswordClose = () => {
-    setIsPasswordModalOpen(false);
-    setPendingRoute(null);
-  };
-
   if (loadingData) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -111,14 +72,9 @@ const AppLayout: React.FC = () => {
     return <Navigate to="/login" replace />;
   }
 
-  const pendingLabel = pendingRoute ? ROUTE_LABELS[pendingRoute] : null;
-
   return (
     <div className="h-screen flex flex-col bg-background" data-tour="dashboard">
-      <Topbar unlockedRoutes={unlockedRoutes} onRequestUnlock={(route) => {
-        setPendingRoute(route);
-        setIsPasswordModalOpen(true);
-      }} />
+      <Topbar />
 
       <Outlet />
 
@@ -127,14 +83,6 @@ const AppLayout: React.FC = () => {
       <TourGuide run={runTour} onFinish={() => setRunTour(false)} />
       <ShortcutHelp open={showShortcutHelp} onClose={() => setShowShortcutHelp(false)} />
       <OfflineIndicator />
-
-      <PasswordModal
-        isOpen={isPasswordModalOpen}
-        onClose={handlePasswordClose}
-        onSuccess={handlePasswordSuccess}
-        title={pendingLabel?.title || 'Área Restrita'}
-        description={pendingLabel?.description || 'Digite a senha do restaurante para acessar'}
-      />
     </div>
   );
 };

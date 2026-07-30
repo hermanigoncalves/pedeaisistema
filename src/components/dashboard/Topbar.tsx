@@ -7,24 +7,17 @@ import { Button } from '@/components/ui/button';
 import { getConnectedDeviceName } from '@/services/printerService';
 import Logo from '@/components/Logo';
 import SettingsModal from './SettingsModal';
-import PasswordModal from './PasswordModal';
 
-// Protected routes that require password
-const PROTECTED_ROUTES = new Set(['/dashboard', '/analytics', '/conversas']);
-
-interface TopbarProps {
-  unlockedRoutes: Set<string>;
-  onRequestUnlock: (route: string) => void;
-}
+interface TopbarProps {}
 
 const navItems = [
-  { path: '/', label: 'Operação', protected: false },
-  { path: '/dashboard', label: 'Dashboard', protected: true },
-  { path: '/analytics', label: 'Analytics', protected: true },
-  { path: '/conversas', label: 'Conversas', protected: true },
+  { path: '/', label: 'Operação' },
+  { path: '/dashboard', label: 'Dashboard' },
+  { path: '/analytics', label: 'Analytics' },
+  { path: '/conversas', label: 'Conversas' },
 ] as const;
 
-const Topbar: React.FC<TopbarProps> = ({ unlockedRoutes, onRequestUnlock }) => {
+const Topbar: React.FC<TopbarProps> = () => {
   const { settings, logout } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
@@ -32,29 +25,11 @@ const Topbar: React.FC<TopbarProps> = ({ unlockedRoutes, onRequestUnlock }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isOnline] = useState(true);
 
-  // Settings password protection
-  const [isSettingsPasswordOpen, setIsSettingsPasswordOpen] = useState(false);
-  const [settingsUnlocked, setSettingsUnlocked] = useState(false);
-
-  const handleNavClick = (path: string, isProtected: boolean) => {
-    if (isProtected && !unlockedRoutes.has(path)) {
-      onRequestUnlock(path);
-      return;
-    }
+  const handleNavClick = (path: string) => {
     navigate(path);
   };
 
   const handleSettingsClick = () => {
-    if (!settingsUnlocked) {
-      setIsSettingsPasswordOpen(true);
-      return;
-    }
-    setIsSettingsOpen(true);
-  };
-
-  const handleSettingsPasswordSuccess = () => {
-    setSettingsUnlocked(true);
-    setIsSettingsPasswordOpen(false);
     setIsSettingsOpen(true);
   };
 
@@ -87,7 +62,7 @@ const Topbar: React.FC<TopbarProps> = ({ unlockedRoutes, onRequestUnlock }) => {
               key={item.path}
               variant={isActive(item.path) ? 'default' : 'secondary'}
               size="sm"
-              onClick={() => handleNavClick(item.path, item.protected)}
+              onClick={() => handleNavClick(item.path)}
               className={`rounded-full px-4 transition-all ${isActive(item.path)
                 ? 'bg-primary text-primary-foreground shadow-md'
                 : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
@@ -164,14 +139,6 @@ const Topbar: React.FC<TopbarProps> = ({ unlockedRoutes, onRequestUnlock }) => {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-      />
-
-      <PasswordModal
-        isOpen={isSettingsPasswordOpen}
-        onClose={() => setIsSettingsPasswordOpen(false)}
-        onSuccess={handleSettingsPasswordSuccess}
-        title="Acesso às Configurações"
-        description="Digite a senha do restaurante para alterar configurações"
       />
     </>
   );
