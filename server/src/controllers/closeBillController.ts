@@ -61,12 +61,22 @@ export function registerCloseBillRoutes(app: FastifyInstance) {
 
           if (pedErr) console.error('[CloseBill] Erro ao fechar pedidos da comanda:', pedErr.message);
 
+          const numOnly = payload.telefone.replace(/\D/g, '');
+          let altNum = numOnly;
+          if (numOnly.startsWith('55')) {
+            if (numOnly.length === 13 && numOnly.charAt(4) === '9') {
+              altNum = '55' + numOnly.substring(2, 4) + numOnly.substring(5);
+            } else if (numOnly.length === 12) {
+              altNum = '55' + numOnly.substring(2, 4) + '9' + numOnly.substring(4);
+            }
+          }
+
           // B. Liberar check-in deste usuário (Mesa = '0', Status = 'Inativo')
           const { error: userErr } = await supabase.client
             .from('Usuários')
             .update({ mesa_atual: '0', Status: 'Inativo' })
             .eq('id_restaurante', restauranteId)
-            .eq('telefone', payload.telefone);
+            .or(`telefone.eq.${numOnly},telefone.eq.${altNum}`);
 
           if (userErr) console.error('[CloseBill] Erro ao liberar check-in da comanda:', userErr.message);
 
