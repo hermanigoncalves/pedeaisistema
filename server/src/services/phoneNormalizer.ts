@@ -1,9 +1,7 @@
 /**
- * Normalização de telefone brasileiro com tratamento completo para:
- *   - Sufixos de dispositivos do WhatsApp (ex: :11@s.whatsapp.net -> remove :11)
- *   - LIDs do WhatsApp Multi-Device (@lid)
- *   - Inserção do 9º dígito após DDD se necessário
- *   - Formatação canônica BR de 13 dígitos (55 + DDD + 9 + 8 dígitos)
+ * Normalização de telefone brasileiro para WhatsApp JID.
+ * Preserva os dígitos exatos do número de WhatsApp recebido do WAHA/WhatsApp Web,
+ * evitando a inserção especulativa do '9' que altera o JID real da conta (ex: 553387140460).
  */
 export function normalizePhone(rawJid: string): string {
   if (!rawJid) return '';
@@ -11,7 +9,7 @@ export function normalizePhone(rawJid: string): string {
   // 1. Remove qualquer sufixo de dispositivo (:11, :2, etc) ANTES de separar por @
   let cleanJid = rawJid.split(':')[0];
 
-  // 2. Extrai apenas dígitos
+  // 2. Extrai apenas os dígitos
   let n = cleanJid.split('@')[0].replace(/\D/g, '');
 
   // 3. Trata números com mais de 13 dígitos (ex: resíduos de dispositivos não cortados)
@@ -24,20 +22,12 @@ export function normalizePhone(rawJid: string): string {
     n = '55' + n;
   }
 
-  // Insere 9 após DDI+DDD (posição 4) se o "resto" tiver 8 dígitos
-  if (n.startsWith('55') && n.length === 12) {
-    const resto = n.slice(4);
-    if (resto.length === 8) {
-      n = n.slice(0, 4) + '9' + resto;
-    }
-  }
-
   return n;
 }
 
 /**
  * Normalização canônica para agrupamento de chats (frontend style).
- * Remove o 55, remove o 9 extra → fica DDD + 8 dígitos.
+ * Remove o 55, remove o 9 extra se houver 11 dígitos → fica DDD + 8 dígitos.
  */
 export function getCanonicalPhone(phone: string): string {
   if (!phone) return '';

@@ -208,9 +208,9 @@ async function handleWebhookRequest(request: any, reply: any) {
       // Transcrição de áudio se necessário
       if (messageType === 'audio') {
         log.warn({ restauranteId }, '[PIPELINE] Baixando e transcrevendo áudio...');
-        rawText = await downloadAndProcess(restauranteId, data, 'audio');
+        rawText = await downloadAndProcess(restauranteId, wahaMsg || rawData, 'audio');
         if (!rawText || rawText.includes('[Áudio') || rawText.includes('[Mídia')) {
-          const fallbackInput = message.base64 ? `data:audio/ogg;base64,${message.base64}` : mediaUrl;
+          const fallbackInput = wahaMsg?.media?.url || message.base64 ? `data:audio/ogg;base64,${message.base64}` : mediaUrl;
           if (fallbackInput) {
             log.warn('[PIPELINE] Tentando fallback de transcrição direta do áudio...');
             rawText = await transcribeAudio(fallbackInput);
