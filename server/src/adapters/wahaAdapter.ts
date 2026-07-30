@@ -50,6 +50,8 @@ function toWahaChatId(number: string): string {
  */
 class WahaAdapter {
   private defaultClient: AxiosInstance;
+  private activeSessionsCache: { name: string; pushName: string; status: string }[] | null = null;
+  private lastCacheTime = 0;
 
   constructor() {
     const baseURL = config.WAHA_URL || config.EVOLUTION_URL;
@@ -66,8 +68,67 @@ class WahaAdapter {
   }
 
   /**
+   * Auto-resolução inteligente de sessão no WAHA.
+   * Se a sessão solicitada não bater exatamente, busca sessões ativas no WAHA por:
+   * 1. Nome exato
+   * 2. Case-insensitive
+   * 3. PushName do WhatsApp
+   * 4. Única sessão WORKING no container
+   */
+  private async getWorkingSession(requestedSession: string, axiosClient: AxiosInstance, forceRefresh = false): Promise<string> {
+    const now = Date.now();
+    if (forceRefresh || !this.activeSessionsCache || (now - this.lastCacheTime > 30000)) {
+      try {
+        const res = await axiosClient.get('/api/sessions?all=true');
+        if (Array.isArray(res.data)) {
+          this.activeSessionsCache = res.data.map((s: any) => ({
+            name: s.name || '',
+            pushName: s.me?.pushName || '',
+            status: s.status || '',
+          }));
+          this.lastCacheTime = Date.now();
+        }
+      } catch (err: any) {
+        console.warn('[WAHA Adapter] ⚠️ Não foi possível listar /api/sessions:', err.message);
+      }
+    }
+
+    if (!this.activeSessionsCache || this.activeSessionsCache.length === 0) {
+      return requestedSession;
+    }
+
+    const working = this.activeSessionsCache.filter(s => s.status === 'WORKING' || s.status === 'STARTING' || s.status === 'CONNECTED');
+    const pool = working.length > 0 ? working : this.activeSessionsCache;
+
+    // 1. Exato
+    const exact = pool.find(s => s.name === requestedSession);
+    if (exact) return exact.name;
+
+    // 2. Case-insensitive
+    const caseMatch = pool.find(s => s.name.toLowerCase() === requestedSession.toLowerCase());
+    if (caseMatch) {
+      console.log(`[WAHA API] 🔄 Ajuste case-insensitive: '${requestedSession}' -> '${caseMatch.name}'`);
+      return caseMatch.name;
+    }
+
+    // 3. Match por PushName do WhatsApp
+    const pushMatch = pool.find(s => s.pushName && (s.pushName.toLowerCase() === requestedSession.toLowerCase() || requestedSession.toLowerCase().includes(s.pushName.toLowerCase()) || s.pushName.toLowerCase().includes(requestedSession.toLowerCase())));
+    if (pushMatch) {
+      console.log(`[WAHA API] 🔄 Auto-detectada sessão por pushName: '${requestedSession}' -> '${pushMatch.name}'`);
+      return pushMatch.name;
+    }
+
+    // 4. Se houver apenas 1 sessão ativa no WAHA, usa ela automaticamente!
+    if (pool.length === 1 && pool[0].name) {
+      console.log(`[WAHA API] 🔄 Usando única sessão ativa no WAHA: '${pool[0].name}' em vez de '${requestedSession}'`);
+      return pool[0].name;
+    }
+
+    return requestedSession;
+  }
+
+  /**
    * Retorna o cliente Axios e o nome da sessão configurados para o restaurante.
-   * Se não houver configurações personalizadas, faz fallback para as variáveis globais.
    */
   private async getClientForRestaurante(restauranteId?: string | null, isDelivery: boolean = false): Promise<{
     axiosClient: AxiosInstance;
@@ -86,11 +147,11 @@ class WahaAdapter {
     try {
       const restaurante = await supabase.getRestauranteById(restauranteId);
 
-      const sessionName = isDelivery
+      const rawSessionName = isDelivery
         ? (restaurante?.waha_session_delivery || restaurante?.waha_session || restaurante?.evolution_instancia_delivery || restaurante?.evolution_instancia)
         : (restaurante?.waha_session || restaurante?.evolution_instancia);
 
-      if (!sessionName) return defaultResult;
+      const targetSession = rawSessionName || config.WAHA_SESSION || config.EVOLUTION_INSTANCE || 'default';
 
       const baseURL = config.WAHA_URL || config.EVOLUTION_URL;
       const apiKey = (isDelivery && (restaurante?.waha_apikey_delivery || restaurante?.evolution_apikey_delivery))
@@ -106,9 +167,11 @@ class WahaAdapter {
         timeout: 30000,
       });
 
+      const resolvedSession = await this.getWorkingSession(targetSession, customClient);
+
       return {
         axiosClient: customClient,
-        sessionName: sessionName,
+        sessionName: resolvedSession,
       };
     } catch (err: any) {
       console.warn(`[WAHA Adapter] Erro ao buscar config do restaurante ${restauranteId}, usando fallback:`, err.message);
@@ -118,8 +181,6 @@ class WahaAdapter {
 
   /**
    * Envia mensagem de texto via WAHA (POST /api/sendText).
-   * Suporta chamadas legadas: sendText(number, text)
-   * E chamadas SaaS: sendText(restauranteId, number, text)
    */
   async sendText(
     restauranteIdOrNumber: string | null | undefined,
@@ -145,7 +206,7 @@ class WahaAdapter {
     let { axiosClient, sessionName } = await this.getClientForRestaurante(restauranteId, isDelivery);
 
     if (overrideSessionName && overrideSessionName.trim()) {
-      sessionName = overrideSessionName.trim();
+      sessionName = await this.getWorkingSession(overrideSessionName.trim(), axiosClient);
     }
 
     const chatId = toWahaChatId(number);
@@ -159,14 +220,30 @@ class WahaAdapter {
         });
         console.log(`[WAHA API] ✅ Texto enviado para ${chatId} (Sessão: ${sessionName})`);
       } catch (err: any) {
-        console.error(`[WAHA API] ❌ Erro ao enviar texto:`, err.response?.data || err.message);
+        const errObj = err.response?.data;
+        // Se deu erro de sessão inexistente, força atualização de cache e tenta 1x mais com a sessão ativa
+        if (errObj?.error && typeof errObj.error === 'string' && errObj.error.includes('does not exist')) {
+          console.warn(`[WAHA API] ⚠️ Sessão '${sessionName}' não encontrada. Buscando sessões ativas do container...`);
+          const resolved = await this.getWorkingSession(sessionName, axiosClient, true);
+          if (resolved !== sessionName) {
+            console.log(`[WAHA API] 🔄 Re-enviando mensagem com a sessão ativa resolvida: '${resolved}'`);
+            await axiosClient.post('/api/sendText', {
+              session: resolved,
+              chatId: chatId,
+              text: messageText,
+            });
+            console.log(`[WAHA API] ✅ Texto enviado com sucesso para ${chatId} (Sessão: ${resolved})`);
+            return;
+          }
+        }
+        console.error(`[WAHA API] ❌ Erro ao enviar texto:`, errObj || err.message);
         throw err;
       }
     }, `sendText(${chatId})`);
   }
 
   /**
-   * Envia indicação "digitando..." ou "gravando..." via WAHA (POST /api/startTyping e /api/stopTyping).
+   * Envia indicação "digitando..." ou "gravando..." via WAHA.
    */
   async sendPresence(
     restauranteIdOrNumber: string | null | undefined,
@@ -203,7 +280,6 @@ class WahaAdapter {
 
   /**
    * Envia mídia (imagem, vídeo, áudio, documento) via WAHA.
-   * Rota /api/sendImage, /api/sendVoice ou /api/sendFile
    */
   async sendMedia(
     restauranteIdOrOpts: any,
