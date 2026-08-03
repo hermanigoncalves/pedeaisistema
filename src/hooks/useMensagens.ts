@@ -181,7 +181,7 @@ export const useMensagens = (restaurantId: string | null, allowedContacts: { pho
                     senderName: msg.nome_contato || '',
                     timestamp: new Date(msg.created_at).getTime(),
                     type: msg.tipo || 'text',
-                    mediaUrl: metadata.mediaUrl || (msg.tipo !== 'text' && msg.conteudo && msg.conteudo.startsWith('http') ? msg.conteudo : undefined),
+                    mediaUrl: metadata.mediaUrl || metadata.media_url || metadata.url || (msg.tipo !== 'text' && msg.conteudo && msg.conteudo.startsWith('http') ? msg.conteudo : undefined),
                     fileName: metadata.fileName || undefined
                 };
             });

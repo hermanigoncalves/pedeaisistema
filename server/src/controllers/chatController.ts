@@ -49,7 +49,7 @@ export function registerChatRoutes(app: FastifyInstance) {
         conteudo: conteudo || mediaUrl || `[${tipo}]`,
         tipo,
         direcao: 'enviada',
-        metadata: mediaUrl ? { mediaUrl, fileName, mimeType: tipo } : undefined,
+        metadata: mediaUrl ? { mediaUrl, media_url: mediaUrl, url: mediaUrl, fileName, mimeType: tipo } : undefined,
       });
 
       return reply.code(200).send({ success: true, message: savedMsg });

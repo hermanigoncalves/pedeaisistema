@@ -352,10 +352,14 @@ class WahaAdapter {
     await withRetry(async () => {
       try {
         let endpoint = '/api/sendFile';
+        let defaultMime = 'application/octet-stream';
+
         if (mediaOpts.mediatype === 'image') {
           endpoint = '/api/sendImage';
+          defaultMime = 'image/jpeg';
         } else if (mediaOpts.mediatype === 'audio') {
           endpoint = '/api/sendVoice';
+          defaultMime = mediaOpts.media.includes('.webm') ? 'audio/webm' : 'audio/ogg';
         }
 
         const payload: Record<string, any> = {
@@ -363,10 +367,14 @@ class WahaAdapter {
           chatId: chatId,
           file: {
             url: mediaOpts.media,
-            filename: mediaOpts.fileName || 'arquivo',
+            filename: mediaOpts.fileName || (mediaOpts.mediatype === 'audio' ? 'audio.ogg' : 'arquivo'),
+            mimetype: defaultMime,
           },
-          caption: mediaOpts.caption || '',
         };
+
+        if (mediaOpts.caption && mediaOpts.mediatype !== 'audio') {
+          payload.caption = mediaOpts.caption;
+        }
 
         await axiosClient.post(endpoint, payload);
         console.log(`[WAHA API] ✅ Mídia (${mediaOpts.mediatype}) enviada para ${chatId} (Sessão: ${sessionName})`);

@@ -210,7 +210,16 @@ async function handleWebhookRequest(request: any, reply: any) {
       // Transcrição de áudio se necessário
       if (messageType === 'audio') {
         log.warn({ restauranteId }, '[PIPELINE] Baixando e transcrevendo áudio...');
-        const audioBuffer = await waha.downloadMedia(restauranteId, wahaMsg || rawData);
+        let audioBuffer = await waha.downloadMedia(restauranteId, wahaMsg || rawData);
+
+        if (!audioBuffer || audioBuffer.length === 0) {
+          const rawBase64 = wahaMsg?.base64 || message?.base64 || wahaMsg?.media?.data || rawData?.payload?.media?.data;
+          if (rawBase64) {
+            const cleanBase64 = rawBase64.includes(',') ? rawBase64.split(',')[1] : rawBase64;
+            audioBuffer = Buffer.from(cleanBase64, 'base64');
+          }
+        }
+
         if (audioBuffer && audioBuffer.length > 0) {
           rawText = await transcribeAudio(audioBuffer);
           try {
@@ -303,7 +312,7 @@ async function handleWebhookRequest(request: any, reply: any) {
             conteudo: collectedMessage,
             tipo: messageType,
             direcao: 'recebida',
-            metadata: finalMediaUrl ? { media_url: finalMediaUrl, url: finalMediaUrl } : undefined,
+            metadata: finalMediaUrl ? { mediaUrl: finalMediaUrl, media_url: finalMediaUrl, url: finalMediaUrl } : undefined,
           });
         } catch (err: any) {
           log.error({ err: err.message }, '[PIPELINE] Erro ao salvar mensagem recebida');
