@@ -1209,7 +1209,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       toast.success('Produto adicionado com sucesso!');
       return true;
     } else {
-      toast.error('Erro ao adicionar produto');
+      // O hook useProdutos já exibe o toast com a mensagem exata do erro
       return false;
     }
   }, [addProduto]);
@@ -1222,15 +1222,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (updates.station !== undefined) updateData.estacao = updates.station;
     if (updates.stock !== undefined) updateData.estoque = updates.stock;
     if (updates.minStock !== undefined) updateData.estoque_minimo = updates.minStock;
-    if (updates.description !== undefined) updateData.descricao = updates.description;
+    if (updates.description !== undefined) updateData.descricao = updates.descricao;
     if (updates.isActive !== undefined) updateData.ativo = updates.isActive;
 
     const success = await updateProduto(parseInt(id, 10), updateData);
     if (success) {
-      // toast.success('Produto atualizado!'); // Comentado para não inundar de toasts em pedidos
+      toast.success('Produto atualizado com sucesso!');
       return true;
     } else {
-      toast.error('Erro ao atualizar produto');
+      // O hook useProdutos já exibe o toast com a mensagem exata do erro
       return false;
     }
   }, [updateProduto]);

@@ -1619,7 +1619,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button onClick={() => setShowAddProduct(true)} className="gap-2">
+                <Button onClick={() => {
+                  setShowAddProduct(true);
+                  setEditingProduct(null);
+                  setEditingProductData(null);
+                }} className="gap-2">
                   <Plus className="w-4 h-4" />
                   Novo Produto
                 </Button>
@@ -1904,6 +1908,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                             onCheckedChange={(checked) => updateProduct(product.id, { isActive: checked })}
                           />
                           <Button variant="ghost" size="icon" onClick={() => {
+                            setShowAddProduct(false);
                             setEditingProduct(product.id);
                             setEditingProductData({ ...product });
                           }}>
