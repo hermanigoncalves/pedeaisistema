@@ -120,18 +120,19 @@ export function criarPedidoTool(userData: { mesa_atual: string; id_restaurante: 
         let precoUnitarioReal: number | null = null;
         let nomeItemCorrigido = itens.trim();
 
-        // 1. Obter as configurações do Restaurante (gerencia_estoque e meia_pizza_habilitada)
+        // 1. Obter as configurações do Restaurante (gerencia_estoque, meia_pizza_habilitada e cobranca_meio_a_meio)
         const { data: restData } = await supabase.client
           .from('Restaurantes')
-          .select('gerencia_estoque, meia_pizza_habilitada')
+          .select('gerencia_estoque, meia_pizza_habilitada, cobranca_meio_a_meio')
           .eq('id', userData.id_restaurante)
           .single();
 
         const gerenciaEstoque = restData?.gerencia_estoque !== false; // Padrão true
         const meiaPizzaHabilitada = restData?.meia_pizza_habilitada ?? false;
+        const cobrancaMeioAMeia = restData?.cobranca_meio_a_meio || 'mais_cara';
 
         // 2. Verificar se é Pizza Meia a Meia (Item virtual permitido se ativo no restaurante)
-        if (nomeItemCorrigido.toLowerCase() === 'pizza meia a meia') {
+        if (nomeItemCorrigido.toLowerCase() === 'pizza meia a meia' || nomeItemCorrigido.toLowerCase().includes('meia a meia')) {
           if (!meiaPizzaHabilitada) {
             return JSON.stringify({
               success: false,
@@ -140,10 +141,10 @@ export function criarPedidoTool(userData: { mesa_atual: string; id_restaurante: 
           }
 
           // Validar individualmente cada sabor da meia a meia informada na descrição
-          // Descrição esperada: "Metade Sabor 1 + Metade Sabor 2"
+          // Descrição esperada: "Metade Sabor 1 + Metade Sabor 2" ou "Metade Sabor 1 / Metade Sabor 2"
           const saboresDesc = descricao
             .replace(/metade\s+/gi, '')
-            .split('+')
+            .split(/[\+\/e,]/i)
             .map(s => s.trim())
             .filter(Boolean);
 
@@ -153,6 +154,7 @@ export function criarPedidoTool(userData: { mesa_atual: string; id_restaurante: 
             .eq('restaurante_id', userData.id_restaurante);
 
           const saboresCadastrados = saboresPizza || [];
+          const precosSabores: number[] = [];
 
           for (const saborSolicitado of saboresDesc) {
             const candidates = saboresCadastrados.map((s: any) => ({
@@ -178,10 +180,29 @@ export function criarPedidoTool(userData: { mesa_atual: string; id_restaurante: 
                 message: `O sabor de pizza "${matchSabor.nome}" está indisponível no momento.`
               });
             }
+
+            precosSabores.push(matchSabor.preco);
           }
 
-          // Aceita o subtotal calculado pela IA
-          precoUnitarioReal = parseFloat(Subtotal) / Math.max(1, parseInt(quantidade, 10) || 1);
+          // Calcular o preço unitário real baseado na regra de cobrança do restaurante
+          let precoCalculado = 0;
+          if (precosSabores.length > 0) {
+            if (cobrancaMeioAMeia === 'soma_metades') {
+              precoCalculado = precosSabores.reduce((acc, p) => acc + (p / precosSabores.length), 0);
+            } else if (cobrancaMeioAMeia === 'media') {
+              precoCalculado = precosSabores.reduce((acc, p) => acc + p, 0) / precosSabores.length;
+            } else {
+              // 'mais_cara' (padrão)
+              precoCalculado = Math.max(...precosSabores);
+            }
+          }
+
+          const subtotalIA = parseFloat(Subtotal) || 0;
+          if (precoCalculado > 0) {
+            precoUnitarioReal = precoCalculado;
+          } else {
+            precoUnitarioReal = subtotalIA / Math.max(1, parseInt(quantidade, 10) || 1);
+          }
         } else {
           // 3. Buscar Produtos e Sabores de Pizza do restaurante para fazer Fuzzy Match
           const { data: dbProdutos } = await supabase.client
@@ -256,14 +277,13 @@ export function criarPedidoTool(userData: { mesa_atual: string; id_restaurante: 
         }
 
         // 6. Calcular subtotal correto e corrigir se divergente
-        let subtotalFinal = Subtotal;
         const qtdFinal = Math.max(1, parseInt(quantidade, 10) || 1);
-        const subtotalCorreto = (precoUnitarioReal * qtdFinal).toFixed(2);
-        const subtotalIA = parseFloat(Subtotal).toFixed(2);
+        const subtotalCorreto = ((precoUnitarioReal || 0) * qtdFinal).toFixed(2);
+        const subtotalIA = parseFloat(Subtotal || '0').toFixed(2);
 
-        if (subtotalCorreto !== subtotalIA && nomeItemCorrigido.toLowerCase() !== 'pizza meia a meia') {
-          console.warn(`[criarPedido] ⚠️ Preço divergente para "${nomeItemCorrigido}": IA enviou R$${subtotalIA}, banco tem R$${precoUnitarioReal}/un × ${qtdFinal} = R$${subtotalCorreto}. Corrigindo para preço do banco.`);
-          subtotalFinal = subtotalCorreto;
+        let subtotalFinal = subtotalCorreto;
+        if (subtotalCorreto !== subtotalIA) {
+          console.warn(`[criarPedido] ⚠️ Preço divergente para "${nomeItemCorrigido}": IA enviou R$${subtotalIA}, banco tem R$${precoUnitarioReal}/un × ${qtdFinal} = R$${subtotalCorreto}. Aplicando preço real calculado do banco.`);
         }
 
         // 7. Trava de Antiduplicação (Idempotência temporal de 60s)
