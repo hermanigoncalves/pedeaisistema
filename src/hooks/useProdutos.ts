@@ -161,17 +161,27 @@ export const useProdutos = (restaurantId: string | null) => {
 
       if (error) {
         console.error('Supabase Error deleting product:', error);
+        // Se houver restrição de chave estrangeira (pedidos vinculados), desativa o produto
+        if (error.code === '23503') {
+          console.warn('[deleteProduto] Produto possui vínculos em pedidos. Desativando...');
+          const updated = await updateProduto(id, { ativo: false });
+          if (updated) {
+            toast.info('O produto possui histórico de pedidos e foi desativado em vez de excluído.');
+            return true;
+          }
+        }
         toast.error(`Erro do Banco: ${error.message}`);
         return false;
       }
 
       await fetchProdutos();
       return true;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to delete product:', err);
+      toast.error(`Erro ao excluir produto: ${err?.message || 'Falha na requisição'}`);
       return false;
     }
-  }, [restaurantId, fetchProdutos]);
+  }, [restaurantId, fetchProdutos, updateProduto]);
 
   // Fetch products when restaurantId changes
   useEffect(() => {
