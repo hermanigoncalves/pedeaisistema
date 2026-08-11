@@ -1776,6 +1776,43 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           return;
         }
 
+        // Imprimir conta na impressora configurada
+        const billData: any = {
+          id: `F${tableId}-${Date.now()}`,
+          mesa: tableId,
+          created_at: new Date(),
+          itens: consumptionToPrint.map(i => ({
+            nome: i.productName,
+            quantidade: i.quantity || i.quantidade || 1,
+            preco: i.price || i.preco || 0,
+            descricao: i.description,
+          })),
+          total: total,
+          subtotal: subtotal,
+          serviceFee: serviceFeeValue,
+          serviceFeePercentage: serviceFeePercentage,
+          totalWithFee: total,
+          couvert: couvertValue,
+          descricao: 'Fechamento de Conta',
+          clienteNome: customerName,
+        };
+
+        const receiptPrinters = currentSettings.printers.filter(p => {
+          if (!p.isActive) return false;
+          if (!p.type || p.type === 'all') return true;
+          const types = p.type.split(',').map((t: string) => t.trim().toLowerCase());
+          return types.includes('receipt') || types.includes('conta') || types.includes('recibo');
+        });
+
+        toast.info(`Imprimindo conta da mesa ${tableId}...`, { icon: '🖨️' });
+        if (receiptPrinters.length === 0) {
+          printViaWebBluetooth(billData, currentSettings.restaurantName);
+        } else {
+          for (const printer of receiptPrinters) {
+            printToDevice(billData, currentSettings.restaurantName, printer);
+          }
+        }
+
         await refetchPedidos({ silent: true });
         await refetchUsuarios({ silent: true });
         
@@ -1862,6 +1899,45 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       toast.success(`Comanda de ${customerName} fechada!`);
+
+      // Imprimir conta individual da comanda na impressora configurada
+      const comandaItens = comandaPedidos.flatMap(p =>
+        p.itens.filter(it => !isSystemMarkerItem(it.nome))
+      );
+      const comandaBillData: any = {
+        id: `C${tableId}-${Date.now()}`,
+        mesa: tableId,
+        created_at: new Date(),
+        itens: comandaItens.map(it => ({
+          nome: it.nome,
+          quantidade: it.quantidade || it.quantity || 1,
+          preco: it.preco || it.price || 0,
+        })),
+        total: total,
+        subtotal: subtotal,
+        serviceFee: serviceFeeValue,
+        serviceFeePercentage: serviceFeePercentage,
+        totalWithFee: total,
+        couvert: couvertValue,
+        descricao: 'Fechamento de Comanda',
+        clienteNome: customerName,
+      };
+
+      const receiptPrinters = currentSettings.printers.filter((p: any) => {
+        if (!p.isActive) return false;
+        if (!p.type || p.type === 'all') return true;
+        const types = p.type.split(',').map((t: string) => t.trim().toLowerCase());
+        return types.includes('receipt') || types.includes('conta') || types.includes('recibo');
+      });
+
+      toast.info(`Imprimindo conta de ${customerName}...`, { icon: '🖨️' });
+      if (receiptPrinters.length === 0) {
+        printViaWebBluetooth(comandaBillData, currentSettings.restaurantName);
+      } else {
+        for (const printer of receiptPrinters) {
+          printToDevice(comandaBillData, currentSettings.restaurantName, printer);
+        }
+      }
 
       await refetchPedidos({ silent: true });
       await refetchUsuarios({ silent: true });
