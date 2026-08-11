@@ -671,11 +671,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             let itemsToPrint = printData.itens;
             
             if (printer.type && printer.type !== 'all') {
-              const printerEstacoes = printer.type.split(',').map(s => s.trim().toLowerCase());
+              const printerEstacoes = Array.from(new Set(printer.type.split(',').map(s => s.trim().toLowerCase())));
               itemsToPrint = printData.itens.filter(item => {
-                const est = item.estacao ? item.estacao.trim().toLowerCase() : 'kitchen';
-                const normalizedEst = est === 'cozinha' ? 'kitchen' : est;
-                return printerEstacoes.includes(normalizedEst);
+                const itemEst = item.estacao ? item.estacao.trim().toLowerCase() : 'kitchen';
+                return printerEstacoes.some(pEst => {
+                  if (pEst === 'all') return true;
+                  if (pEst === itemEst) return true;
+                  if ((pEst === 'kitchen' || pEst === 'cozinha') && (itemEst === 'kitchen' || itemEst === 'cozinha')) return true;
+                  if (pEst === 'bar' && itemEst === 'bar') return true;
+                  if ((pEst === 'receipt' || pEst === 'conta' || pEst === 'recibo') && (itemEst === 'receipt' || itemEst === 'conta' || itemEst === 'recibo')) return true;
+                  return false;
+                });
               });
             }
 
@@ -894,7 +900,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
           toast.info(`Imprimindo conta da mesa ${freshTable.id} automaticamente...`, { icon: '🖨️' });
 
-          const receiptPrinters = currentSettings.printers.filter(p => p.isActive && p.type === 'receipt');
+          const receiptPrinters = currentSettings.printers.filter(p => {
+            if (!p.isActive) return false;
+            if (!p.type || p.type === 'all') return true;
+            const types = p.type.split(',').map(t => t.trim().toLowerCase());
+            return types.includes('receipt') || types.includes('conta') || types.includes('recibo');
+          });
+
           if (receiptPrinters.length === 0) {
             const success = await printViaWebBluetooth(billData, currentSettings.restaurantName);
             if (!success) {
@@ -1577,7 +1589,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           };
 
           toast.info(`Imprimindo conta da mesa ${tableId}...`, { icon: '🖨️' });
-          const receiptPrinters = currentSettings.printers.filter(p => p.isActive && p.type === 'receipt');
+          const receiptPrinters = currentSettings.printers.filter(p => {
+            if (!p.isActive) return false;
+            if (!p.type || p.type === 'all') return true;
+            const types = p.type.split(',').map(t => t.trim().toLowerCase());
+            return types.includes('receipt') || types.includes('conta') || types.includes('recibo');
+          });
+
           if (receiptPrinters.length === 0) {
             printViaWebBluetooth(billData, currentSettings.restaurantName);
           } else {
@@ -1634,11 +1652,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         for (const printer of activePrinters) {
           let itemsToPrint = printData.itens;
           if (printer.type && printer.type !== 'all') {
-            const printerEstacoes = printer.type.split(',').map(s => s.trim().toLowerCase());
+            const printerEstacoes = Array.from(new Set(printer.type.split(',').map(s => s.trim().toLowerCase())));
             itemsToPrint = printData.itens.filter(item => {
-              const est = item.estacao ? item.estacao.trim().toLowerCase() : 'kitchen';
-              const normalizedEst = est === 'cozinha' ? 'kitchen' : est;
-              return printerEstacoes.includes(normalizedEst);
+              const itemEst = item.estacao ? item.estacao.trim().toLowerCase() : 'kitchen';
+              return printerEstacoes.some(pEst => {
+                if (pEst === 'all') return true;
+                if (pEst === itemEst) return true;
+                if ((pEst === 'kitchen' || pEst === 'cozinha') && (itemEst === 'kitchen' || itemEst === 'cozinha')) return true;
+                if (pEst === 'bar' && itemEst === 'bar') return true;
+                if ((pEst === 'receipt' || pEst === 'conta' || pEst === 'recibo') && (itemEst === 'receipt' || itemEst === 'conta' || itemEst === 'recibo')) return true;
+                return false;
+              });
             });
           }
 

@@ -213,24 +213,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
 
   const formatDestino = (type: string) => {
     if (!type) return 'Nenhum';
-    const currentEst = type.split(',').map(s => s.trim().toLowerCase());
+    const currentEst = Array.from(new Set(type.split(',').map(s => s.trim().toLowerCase())));
     if (currentEst.includes('all')) return '🧾 Imprimir Tudo';
-    const labels = [];
+    const labels: string[] = [];
     
     currentEst.forEach(val => {
       const found = estacoes.find(e => e.nome.trim().toLowerCase() === val);
       if (found) {
         labels.push(found.nome);
-      } else if (val === 'receipt') {
+      } else if (val === 'receipt' || val === 'conta' || val === 'recibo') {
         labels.push('🧾 Conta');
-      } else if (val === 'kitchen') {
+      } else if (val === 'kitchen' || val === 'cozinha') {
         labels.push('🍽️ Cozinha');
       } else if (val === 'bar') {
         labels.push('🍺 Bar');
+      } else {
+        labels.push(val);
       }
     });
     
-    return labels.join(' + ') || 'Apenas a Conta';
+    const uniqueLabels = Array.from(new Set(labels));
+    return uniqueLabels.join(' + ') || 'Apenas a Conta';
   };
   const [newPrinterIp, setNewPrinterIp] = useState('192.168.1.169');
   const [newPrinterPort, setNewPrinterPort] = useState('9100');
@@ -1430,8 +1433,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                             {/* Alterar Estação Inline com Múltiplas Seleções */}
                             <div className="flex items-center gap-1.5">
                               {estacoesOptions.map((option) => {
-                                const currentEstacoes = printer.type ? printer.type.split(',').map(s => s.trim().toLowerCase()) : [];
-                                const isSelected = currentEstacoes.includes(option.value) || currentEstacoes.includes('all');
+                                const currentEstacoes = printer.type ? Array.from(new Set(printer.type.split(',').map(s => s.trim().toLowerCase()))) : [];
+                                const optVal = option.value.toLowerCase();
+                                const isSelected = currentEstacoes.includes(optVal) ||
+                                  (optVal === 'cozinha' && currentEstacoes.includes('kitchen')) ||
+                                  (optVal === 'kitchen' && currentEstacoes.includes('cozinha')) ||
+                                  (optVal === 'bar' && currentEstacoes.includes('bar')) ||
+                                  ((optVal === 'receipt' || optVal === 'conta' || optVal === 'recibo') && (currentEstacoes.includes('receipt') || currentEstacoes.includes('conta') || currentEstacoes.includes('recibo'))) ||
+                                  currentEstacoes.includes('all');
                                 return (
                                   <button
                                     key={option.value}
@@ -1439,12 +1448,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                                     onClick={() => {
                                       let updatedEstacoes = [...currentEstacoes].filter(e => e !== 'all');
                                       if (isSelected) {
-                                        updatedEstacoes = updatedEstacoes.filter(e => e !== option.value);
+                                        updatedEstacoes = updatedEstacoes.filter(e => {
+                                          if (optVal === 'cozinha' || optVal === 'kitchen') return e !== 'cozinha' && e !== 'kitchen';
+                                          if (optVal === 'receipt' || optVal === 'conta' || optVal === 'recibo') return e !== 'receipt' && e !== 'conta' && e !== 'recibo';
+                                          return e !== optVal;
+                                        });
                                       } else {
-                                        updatedEstacoes.push(option.value);
+                                        updatedEstacoes.push(optVal);
                                       }
                                       // Se tudo estiver desmarcado, coloca 'receipt' como padrão de segurança
-                                      const newTypeVal = updatedEstacoes.length > 0 ? updatedEstacoes.join(',') : 'receipt';
+                                      const uniqueEstacoes = Array.from(new Set(updatedEstacoes));
+                                      const newTypeVal = uniqueEstacoes.length > 0 ? uniqueEstacoes.join(',') : 'receipt';
                                       
                                       const updated = settings.printers.map(p =>
                                         p.id === printer.id ? { ...p, type: newTypeVal as any } : p
