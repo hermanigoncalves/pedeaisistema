@@ -60,6 +60,7 @@ export interface CloseBillPayload {
   couvert?: string;
   skipWhatsApp?: boolean;
   restaurante_id?: string;
+  tipo?: 'mesa' | 'comanda';
 }
 
 /** Tipo de mensagem detectado */

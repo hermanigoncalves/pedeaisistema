@@ -45,9 +45,16 @@ export function registerCloseBillRoutes(app: FastifyInstance) {
 
         const isComanda = restData?.modo_cobranca === 'comanda';
         const tableStr = payload.numero_mesa.toString();
+        const isSingleComandaClose = payload.tipo === 'comanda' || (
+          isComanda &&
+          payload.tipo !== 'mesa' &&
+          payload.telefone &&
+          payload.telefone !== 'Não informado' &&
+          payload.telefone !== 'mesa'
+        );
 
-        if (isComanda && payload.telefone && payload.telefone !== 'Não informado' && payload.telefone !== 'mesa') {
-          console.log(`[CloseBill] Modo Comanda: Gravando fechamento de ${payload.telefone} na mesa ${payload.numero_mesa}`);
+        if (isSingleComandaClose) {
+          console.log(`[CloseBill] Modo Comanda Individual: Gravando fechamento de ${payload.telefone} na mesa ${payload.numero_mesa}`);
           
           // A. Atualizar pedidos deste usuário na mesa para 'fechado'
           const { error: pedErr } = await supabase.client
@@ -76,12 +83,12 @@ export function registerCloseBillRoutes(app: FastifyInstance) {
             .from('Usuários')
             .update({ mesa_atual: '0', Status: 'Inativo' })
             .eq('id_restaurante', restauranteId)
-            .or(`telefone.eq.${numOnly},telefone.eq.${altNum}`);
+            .or(`telefone.eq.${numOnly},telefone.eq.${altNum},telefone.eq.${payload.telefone}`);
 
           if (userErr) console.error('[CloseBill] Erro ao liberar check-in da comanda:', userErr.message);
 
         } else {
-          console.log(`[CloseBill] Modo Mesa (ou comanda geral): Gravando fechamento total da mesa ${payload.numero_mesa}`);
+          console.log(`[CloseBill] Modo Mesa (Fechamento Total): Gravando fechamento total da mesa ${payload.numero_mesa}`);
 
           // A. Atualizar todos os pedidos ativos da mesa para 'fechado'
           const { error: pedErr } = await supabase.client

@@ -1746,7 +1746,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         taxa: serviceFeeValue.toFixed(2),
         couvert: couvertValue.toFixed(2),
         total: total.toFixed(2),
-        skipWhatsApp: shouldSkipWebhook
+        skipWhatsApp: shouldSkipWebhook,
+        tipo: 'mesa' as const
       };
 
       console.log('[Webhook Close Table] Enviando payload:', webhookPayload);
@@ -1841,7 +1842,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         subtotal: subtotal.toFixed(2),
         taxa: serviceFeeValue.toFixed(2),
         couvert: couvertValue.toFixed(2),
-        total: total.toFixed(2)
+        total: total.toFixed(2),
+        tipo: 'comanda' as const
       };
 
       console.log('[Close Comanda] Enviando conta individual:', webhookPayload);

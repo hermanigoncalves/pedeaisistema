@@ -170,14 +170,11 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({ table, onClose }) =
           await closeComanda(currentTable.id, comanda.telefone);
         }
       }
-      // Se sobrou comanda 'mesa' (itens sem dono), fechar a mesa
-      const hasMesaItems = comandas.some(c => c.telefone === 'mesa' && c.items.length > 0);
-      if (hasMesaItems) {
-        await closeTable(currentTable.id);
-      }
+      // Fechar a mesa para liberar o estado no backend e frontend
+      await closeTable(currentTable.id);
     } else {
       // Modo mesa: fechar mesa inteira
-      closeTable(currentTable.id);
+      await closeTable(currentTable.id);
     }
     setConfirmPaidOpen(false);
     onClose();

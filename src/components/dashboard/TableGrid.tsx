@@ -309,11 +309,14 @@ const TableGrid: React.FC<TableGridProps> = ({ showTitleAndFilters = true }) => 
                       p => Number(p.mesa) === confirmPaidTableId && p.status === 'pagamento_pendente'
                     );
                     const tels = [...new Set(pedidosPagamento.map(p => p.usuario_telefone).filter(Boolean))];
-                    for (const tel of tels) {
-                      await closeComanda(confirmPaidTableId, tel);
+                    if (tels.length > 0) {
+                      for (const tel of tels) {
+                        await closeComanda(confirmPaidTableId, tel);
+                      }
                     }
+                    await closeTable(confirmPaidTableId);
                   } else {
-                    closeTable(confirmPaidTableId);
+                    await closeTable(confirmPaidTableId);
                   }
                 }
                 setConfirmPaidTableId(null);
