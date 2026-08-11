@@ -972,7 +972,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   }, [settings.totalTables]);
 
-  // Login directly against Restaurantes table
+  // Login via servidor Backend Fastify (bcrypt)
   const login = useCallback(async (email: string, password: string): Promise<AuthResult> => {
     // Validate input
     const validation = validateLoginInput(email, password);
@@ -982,28 +982,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     try {
-      const { data, error } = await supabase
-        .from('Restaurantes')
-        .select('id, email, senha')
-        .eq('email', email.trim())
-        .maybeSingle();
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
+      const response = await fetch(`${backendUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-      if (error || !data) {
-        return { success: false, error: 'Email ou senha inválidos' };
-      }
+      const data = await response.json();
 
-      // Check password
-      if (data.senha !== password) {
-        return { success: false, error: 'Email ou senha inválidos' };
+      if (!response.ok || !data.success) {
+        return { success: false, error: data.error || 'Email ou senha inválidos' };
       }
 
       // Store session in localStorage
-      localStorage.setItem('pedeai_restaurant_id', data.id);
-      setRestaurantId(data.id);
+      localStorage.setItem('pedeai_restaurant_id', data.restauranteId);
+      setRestaurantId(data.restauranteId);
 
       return { success: true };
     } catch (err) {
-      return { success: false, error: 'Erro ao realizar login. Tente novamente.' };
+      return { success: false, error: 'Erro de conexão com o servidor. Tente novamente.' };
     }
   }, []);
 
@@ -1014,21 +1012,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const adminLogin = useCallback(async (email: string, password: string): Promise<AuthResult> => {
     try {
-      const { data, error } = await supabase
-        .from('admin_acessos' as any)
-        .select('*')
-        .eq('email', email.trim())
-        .maybeSingle();
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
+      const response = await fetch(`${backendUrl}/api/auth/admin-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-      const adminData = data as any;
+      const data = await response.json();
 
-      if (error || !adminData) {
-        console.error('Admin login error:', error);
-        return { success: false, error: 'Credenciais de administrador inválidas' };
-      }
-
-      if (adminData.senha !== password) {
-        return { success: false, error: 'Credenciais de administrador inválidas' };
+      if (!response.ok || !data.success) {
+        return { success: false, error: data.error || 'Credenciais de administrador inválidas' };
       }
 
       localStorage.setItem('pedeai_admin_auth', 'true');

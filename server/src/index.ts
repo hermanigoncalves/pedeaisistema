@@ -9,6 +9,7 @@ import { registerCloseBillRoutes } from './controllers/closeBillController';
 import { startStockAlertCron } from './controllers/stockAlertController';
 import { registerSystemRoutes } from './controllers/systemController';
 import { registerChatRoutes } from './controllers/chatController';
+import { registerAuthRoutes } from './controllers/authController';
 
 const app = Fastify({ logger: true });
 
@@ -18,6 +19,9 @@ const PUBLIC_PATHS = new Set([
   '/webhook/pedeai',
   '/webhook/delivery',
   '/webhook',
+  '/api/auth/login',
+  '/api/auth/admin-login',
+  '/api/auth/verify-password',
 ]);
 
 async function main() {
@@ -56,6 +60,7 @@ async function main() {
   registerCloseBillRoutes(app);
   registerSystemRoutes(app);
   registerChatRoutes(app);
+  registerAuthRoutes(app);
 
   // Inicia cron de estoque
   startStockAlertCron();

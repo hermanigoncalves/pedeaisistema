@@ -10,13 +10,14 @@
     "type-check": "node --max-old-space-size=4096 node_modules/typescript/bin/tsc --noEmit"
   },
   "dependencies": {
+    "@fastify/cors": "^10.0.0",
     "@langchain/core": "^0.3.0",
     "@langchain/openai": "^0.3.0",
     "@supabase/supabase-js": "^2.49.0",
     "axios": "^1.7.0",
+    "bcryptjs": "^3.0.3",
     "dotenv": "^16.4.0",
     "fastify": "^5.2.0",
-    "@fastify/cors": "^10.0.0",
     "ioredis": "^5.4.0",
     "langchain": "^0.3.0",
     "node-cron": "^3.0.3",
@@ -24,6 +25,7 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.0.0",
     "@types/node-cron": "^3.0.11",
     "esbuild": "^0.25.0",

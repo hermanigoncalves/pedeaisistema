@@ -44,24 +44,22 @@ const PasswordModal: React.FC<PasswordModalProps> = ({
         return;
       }
 
-      const { data, error: fetchError } = await supabase
-        .from('Restaurantes')
-        .select('senha')
-        .eq('id', restaurantId)
-        .maybeSingle();
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
+      const response = await fetch(`${backendUrl}/api/auth/verify-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ restauranteId, password }),
+      });
 
-      if (fetchError || !data) {
-        setError('Erro ao verificar senha');
-        return;
-      }
+      const resData = await response.json();
 
-      if (data.senha === password) {
+      if (response.ok && resData.success) {
         toast.success('Acesso liberado!');
         setPassword('');
         onSuccess();
         onClose();
       } else {
-        setError('Senha incorreta');
+        setError(resData.error || 'Senha incorreta');
       }
     } catch (err) {
       setError('Erro ao verificar senha');
