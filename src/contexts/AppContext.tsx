@@ -1732,8 +1732,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
       }
 
-      const consumptionBase = table.consumption || [];
-      const consumptionToPrint = consumptionBase.filter(item => !isSystemMarkerItem(item.productName));
+      const tablePedidos = pedidos.filter(
+        p => Number(p.mesa) === tableId && p.status !== 'fechado' && p.status !== 'dividido'
+      );
+
+      const itensFromPedidos = tablePedidos.flatMap(p =>
+        p.itens
+          .filter(it => !isSystemMarkerItem(it.nome))
+          .map(it => ({
+            productName: it.nome,
+            price: it.preco || it.price || 0,
+            quantity: it.quantidade || it.quantity || 1,
+            description: '',
+          }))
+      );
+
+      const consumptionToPrint = itensFromPedidos.length > 0
+        ? itensFromPedidos
+        : (table.consumption || []).filter(item => !isSystemMarkerItem(item.productName));
+
       const subtotal = consumptionToPrint.reduce((acc, item) => acc + ((item.price || item.preco || 0) * (item.quantity || item.quantidade || 1)), 0);
       const serviceFeePercentage = currentSettings.serviceFee || 0;
       const serviceFeeValue = (subtotal * serviceFeePercentage) / 100;
@@ -1833,7 +1850,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         toast.error('Falha de conexão com o servidor de fechamento.');
       }
     }
-  }, [tables, restaurantId, refetchPedidos, refetchUsuarios]);
+  }, [tables, pedidos, restaurantId, refetchPedidos, refetchUsuarios]);
 
   // --- CLOSE COMANDA (individual, modo comanda) ---
   const closeComanda = useCallback(async (tableId: number, telefone: string) => {
