@@ -39,7 +39,7 @@ function findBestMatch(
   threshold = 0.35
 ): ProdutoCandidato | null {
   let bestCandidate: ProdutoCandidato | null = null;
-  let minDistance = Infinity;
+  let minScore = Infinity;
 
   // Normalização básica: minúsculas, remove acentos e caracteres especiais
   const normalize = (str: string) =>
@@ -62,14 +62,20 @@ function findBestMatch(
       return cand;
     }
 
-    // 2. Match de substring (se um contém o outro)
-    if (
-      normalizedCandidate.includes(normalizedInput) ||
-      normalizedInput.includes(normalizedCandidate)
-    ) {
-      const distance = Math.abs(normalizedCandidate.length - normalizedInput.length);
-      if (distance < minDistance) {
-        minDistance = distance;
+    // 2. Match de substring seguro (proporção para favorecer o nome mais próximo)
+    if (normalizedCandidate.includes(normalizedInput)) {
+      const score = (normalizedCandidate.length - normalizedInput.length) / normalizedCandidate.length;
+      if (score < minScore) {
+        minScore = score;
+        bestCandidate = cand;
+      }
+      continue;
+    }
+
+    if (normalizedInput.includes(normalizedCandidate) && normalizedCandidate.length >= 3) {
+      const score = (normalizedInput.length - normalizedCandidate.length) / normalizedInput.length;
+      if (score < minScore) {
+        minScore = score;
         bestCandidate = cand;
       }
       continue;
@@ -80,8 +86,8 @@ function findBestMatch(
     const maxLen = Math.max(normalizedInput.length, normalizedCandidate.length);
     const score = distance / maxLen;
 
-    if (score <= threshold && distance < minDistance) {
-      minDistance = distance;
+    if (score <= threshold && score < minScore) {
+      minScore = score;
       bestCandidate = cand;
     }
   }
@@ -132,7 +138,14 @@ export function criarPedidoTool(userData: { mesa_atual: string; id_restaurante: 
         const cobrancaMeioAMeia = restData?.cobranca_meio_a_meio || 'mais_cara';
 
         // 2. Verificar se é Pizza Meia a Meia (Item virtual permitido se ativo no restaurante)
-        if (nomeItemCorrigido.toLowerCase() === 'pizza meia a meia' || nomeItemCorrigido.toLowerCase().includes('meia a meia')) {
+        const isMeiaAMeia = 
+          nomeItemCorrigido.toLowerCase().includes('meia') ||
+          nomeItemCorrigido.toLowerCase().includes('metade') ||
+          descricao.toLowerCase().includes('metade') ||
+          (descricao.includes('+') && (nomeItemCorrigido.toLowerCase().includes('pizza') || descricao.toLowerCase().includes('pizza')));
+
+        if (isMeiaAMeia) {
+          nomeItemCorrigido = 'Pizza Meia a Meia';
           if (!meiaPizzaHabilitada) {
             return JSON.stringify({
               success: false,
