@@ -166,18 +166,40 @@ export function criarPedidoTool(userData: { mesa_atual: string; id_restaurante: 
             .select('nome, preco, ativo')
             .eq('restaurante_id', userData.id_restaurante);
 
-          const saboresCadastrados = saboresPizza || [];
+          const { data: produtosBanco } = await supabase.client
+            .from('Produtos')
+            .select('nome, preco, ativo')
+            .eq('restaurante_id', userData.id_restaurante);
+
+          const candidates: ProdutoCandidato[] = [];
+
+          if (saboresPizza) {
+            candidates.push(
+              ...saboresPizza.map((s: any) => ({
+                nome: s.nome,
+                preco: Number(s.preco),
+                ativo: s.ativo !== false,
+                estoque: 999,
+                origem: 'SaboresPizza' as const
+              }))
+            );
+          }
+
+          if (produtosBanco) {
+            candidates.push(
+              ...produtosBanco.map((p: any) => ({
+                nome: p.nome.replace(/^pizza\s+/gi, ''),
+                preco: Number(p.preco),
+                ativo: p.ativo !== false,
+                estoque: 999,
+                origem: 'Produtos' as const
+              }))
+            );
+          }
+
           const precosSabores: number[] = [];
 
           for (const saborSolicitado of saboresDesc) {
-            const candidates = saboresCadastrados.map((s: any) => ({
-              nome: s.nome,
-              preco: Number(s.preco),
-              ativo: s.ativo !== false,
-              estoque: 999,
-              origem: 'SaboresPizza' as const
-            }));
-
             const matchSabor = findBestMatch(saborSolicitado, candidates, 0.4);
 
             if (!matchSabor) {
