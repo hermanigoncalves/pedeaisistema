@@ -304,24 +304,7 @@ const TableGrid: React.FC<TableGridProps> = ({ showTitleAndFilters = true }) => 
             <AlertDialogAction
               onClick={async () => {
                 if (confirmPaidTableId) {
-                  // 1. Imprimir a conta da mesa
-                  await requestBill(confirmPaidTableId, true);
-
-                  // 2. Fechar comanda(s) ou mesa (envia WhatsApp e zera check-in)
-                  if (settings.billingMode === 'comanda') {
-                    const pedidosPagamento = pedidos.filter(
-                      p => Number(p.mesa) === confirmPaidTableId && p.status === 'pagamento_pendente'
-                    );
-                    const tels = [...new Set(pedidosPagamento.map(p => p.usuario_telefone).filter(Boolean))];
-                    if (tels.length > 0) {
-                      for (const tel of tels) {
-                        await closeComanda(confirmPaidTableId, tel);
-                      }
-                    }
-                    await closeTable(confirmPaidTableId);
-                  } else {
-                    await closeTable(confirmPaidTableId);
-                  }
+                  await closeTable(confirmPaidTableId);
                 }
                 setConfirmPaidTableId(null);
               }}

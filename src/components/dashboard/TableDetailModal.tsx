@@ -163,20 +163,7 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({ table, onClose }) =
   };
 
   const confirmPaid = async () => {
-    // 1. Imprimir a conta da mesa na impressora térmica / recibo
-    await requestBill(currentTable.id, true);
-
-    // 2. Fechar comandas / mesa e enviar mensagem de WhatsApp
-    if (isComandaMode && comandas.length > 0) {
-      for (const comanda of comandas) {
-        if (comanda.telefone !== 'mesa') {
-          await closeComanda(currentTable.id, comanda.telefone);
-        }
-      }
-      await closeTable(currentTable.id);
-    } else {
-      await closeTable(currentTable.id);
-    }
+    await closeTable(currentTable.id);
     setConfirmPaidOpen(false);
     onClose();
   };
