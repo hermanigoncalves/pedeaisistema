@@ -64,11 +64,13 @@ const ConversationsView: React.FC = () => {
     const targetVal = !currentVal;
 
     try {
+      const secret = import.meta.env.VITE_WEBHOOK_SECRET as string | undefined;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (secret) headers['x-webhook-secret'] = secret;
+
       const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/chat/toggle-bot`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify({
           telefone: selectedChatId,
           chat_humano: targetVal
@@ -131,11 +133,13 @@ const ConversationsView: React.FC = () => {
 
     setSending(true);
     try {
+      const secret2 = import.meta.env.VITE_WEBHOOK_SECRET as string | undefined;
+      const sendHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (secret2) sendHeaders['x-webhook-secret'] = secret2;
+
       const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/chat/send`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: sendHeaders,
         body: JSON.stringify({
           telefone: selectedChatId,
           conteudo,

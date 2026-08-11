@@ -45,7 +45,7 @@ export function startStockAlertCron() {
 
         // 5. Usa GPT para formatar alerta profissional
         const model = new ChatOpenAI({
-          model: 'gpt-4.1-mini',
+          model: 'gpt-4o-mini',
           temperature: 0.3,
           apiKey: config.OPENAI_API_KEY,
         });

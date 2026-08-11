@@ -227,11 +227,23 @@ As regras abaixo são anexadas a toda requisição e têm prioridade em caso de 
 `;
 
 // ============================================================
-// Cache de memória por sessão (telefone)
+// Cache de memória por sessão (telefone) com TTL de 2 horas
 // ============================================================
+const MEMORY_TTL_MS = 2 * 60 * 60 * 1000; // 2 horas
 const memoryCache = new Map<string, BufferWindowMemory>();
+const memoryCacheTimestamps = new Map<string, number>();
 
 function getMemory(phone: string): BufferWindowMemory {
+  const now = Date.now();
+  const lastAccess = memoryCacheTimestamps.get(phone) || 0;
+
+  // Expirar sessão se inativa há mais de 2h
+  if (memoryCache.has(phone) && now - lastAccess > MEMORY_TTL_MS) {
+    memoryCache.delete(phone);
+    memoryCacheTimestamps.delete(phone);
+    console.log(`[Agent] ⏰ Memória expirada (TTL) para ${phone.slice(0, 6)}...`);
+  }
+
   if (!memoryCache.has(phone)) {
     memoryCache.set(
       phone,
@@ -245,6 +257,8 @@ function getMemory(phone: string): BufferWindowMemory {
       }),
     );
   }
+
+  memoryCacheTimestamps.set(phone, now);
   return memoryCache.get(phone)!;
 }
 
@@ -255,6 +269,7 @@ function getMemory(phone: string): BufferWindowMemory {
 export function clearMemory(phone: string): void {
   if (memoryCache.has(phone)) {
     memoryCache.delete(phone);
+    memoryCacheTimestamps.delete(phone);
     console.log(`[Agent] 🧹 Memória limpa para ${phone.slice(0, 6)}...`);
   }
 }

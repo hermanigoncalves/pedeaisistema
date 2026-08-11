@@ -17,6 +17,9 @@ const schema = z.object({
   REDIS_URL: z.string().default('redis://localhost:6379'),
   RESTAURANTE_ID: z.string().uuid().optional(),
   AGENT_ROLE: z.enum(['pedeai', 'delivery']).default('pedeai'),
+  // Segurança
+  CORS_ORIGIN: z.string().default('*'),
+  WEBHOOK_SECRET: z.string().optional(),
 }).transform((data) => {
   return {
     ...data,

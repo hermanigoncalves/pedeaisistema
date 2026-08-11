@@ -17,6 +17,12 @@ dist-ssr
 print-agent/*.exe
 public/*.exe
 
+# Arquivos de debug / dados de sessão exportados
+debug_api.js
+debug_api.mjs
+debug_output*.txt
+uazapi_chats.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

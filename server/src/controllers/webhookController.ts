@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { MessageType } from '../types';
 import { normalizePhone } from '../services/phoneNormalizer';
 import { pushToBuffer, waitAndCollect } from '../services/messageBuffer';
-import { transcribeAudio, analyzeImage, downloadAndProcess } from '../services/mediaService';
+import { transcribeAudio, analyzeImage, downloadAndProcess, uploadMediaBuffer } from '../services/mediaService';
 import { sendTypingAndWait } from '../services/presenceService';
 import { waha, evolution } from '../adapters/wahaAdapter';
 import { supabase } from '../adapters/supabaseAdapter';
