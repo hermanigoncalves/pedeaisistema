@@ -599,6 +599,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const printedOrdersRef = React.useRef<Set<number>>(new Set());
   const initialSyncDone = React.useRef(false);
 
+  // Carrega histórico de IDs já impressos do localStorage para evitar reimpressões ao atualizar
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('pedeai_printed_order_ids');
+      if (saved) {
+        const ids: number[] = JSON.parse(saved);
+        ids.forEach(id => printedOrdersRef.current.add(id));
+      }
+    } catch (e) {}
+  }, []);
+
+  const markOrderAsPrinted = useCallback((orderId: number) => {
+    printedOrdersRef.current.add(orderId);
+    try {
+      const ids = Array.from(printedOrdersRef.current).slice(-300); // mantém últimos 300 IDs
+      localStorage.setItem('pedeai_printed_order_ids', JSON.stringify(ids));
+    } catch (e) {}
+  }, []);
+
   // Sincroniza o Ref inicial para evitar imprimir pedidos antigos ao carregar ou ligar o interruptor
   // No entanto, permite que pedidos criados nos últimos 5 minutos sejam impressos mesmo após recarregamentos ou refreshes rápidos.
   useEffect(() => {
@@ -611,7 +630,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const dataPedido = new Date(p.created_at);
           // Se o pedido foi criado há mais de 5 minutos, marca como já impresso para não imprimir em lote
           if (dataPedido < cincoMinutosAtras) {
-            printedOrdersRef.current.add(p.id);
+            markOrderAsPrinted(p.id);
           } else {
             console.log(`[AutoPrint] Pedido recente #${p.id} detectado na carga inicial (${dataPedido.toLocaleTimeString()}). Será impresso automaticamente.`);
           }
@@ -620,7 +639,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       initialSyncDone.current = true;
       console.log(`[AutoPrint] Ref inicial sincronizado. Ignorados ${printedOrdersRef.current.size} pedidos antigos.`);
     }
-  }, [pedidos]);
+  }, [pedidos, markOrderAsPrinted]);
 
   useEffect(() => {
     if (!settings.autoPrintEnabled || !localAutoPrint) return;
@@ -642,8 +661,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       console.log(`[AutoPrint] Detectados ${newPendingOrders.length} novos pedidos.`);
 
       newPendingOrders.forEach(async (pedido) => {
-        // Marca temporariamente para evitar duplicidade em re-renders rápidos
-        printedOrdersRef.current.add(pedido.id);
+        // Marca IMEDIATAMENTE e de forma PERMANENTE para evitar qualquer loop de disparo
+        markOrderAsPrinted(pedido.id);
 
         // No modo comanda, buscar nome do cliente pelo telefone
         let printData: any = pedido;
@@ -662,11 +681,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (success) {
             toast.success(`Pedido #${pedido.id} impresso automaticamente!`);
           } else {
-            printedOrdersRef.current.delete(pedido.id);
             console.warn(`[AutoPrint] Falha ao imprimir cupom único do pedido #${pedido.id}.`);
           }
         } else {
-          let hasError = false;
           for (const printer of activePrinters) {
             let itemsToPrint = printData.itens;
             
@@ -696,20 +713,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               
               const success = await printToDevice(segmentedData, settings.restaurantName, printer);
               if (!success) {
-                hasError = true;
                 toast.error(`Falha ao imprimir na impressora "${printer.name}"`);
               } else {
                 toast.success(`Pedido #${pedido.id} enviado para "${printer.name}"`);
               }
             }
           }
-          if (hasError) {
-            printedOrdersRef.current.delete(pedido.id);
-          }
         }
       });
     }
-  }, [pedidos, settings.autoPrintEnabled, settings.restaurantName, settings.billingMode, settings.printers, localAutoPrint, usuarios]);
+  }, [pedidos, settings.autoPrintEnabled, settings.restaurantName, settings.billingMode, settings.printers, localAutoPrint, usuarios, markOrderAsPrinted]);
 
   // --------------------------------------
   // --------------------------------------
