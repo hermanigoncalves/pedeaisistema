@@ -113,7 +113,7 @@ const TableIcon = ({ number, status, alert }: { number: number; status: string; 
 };
 
 const TableGrid: React.FC<TableGridProps> = ({ showTitleAndFilters = true }) => {
-  const { tables, settings, filter, setFilter, orders, closeTable, closeComanda, pedidos, estacoes } = useApp();
+  const { tables, settings, filter, setFilter, orders, closeTable, closeComanda, requestBill, pedidos, estacoes } = useApp();
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [confirmPaidTableId, setConfirmPaidTableId] = useState<number | null>(null);
 
@@ -304,6 +304,10 @@ const TableGrid: React.FC<TableGridProps> = ({ showTitleAndFilters = true }) => 
             <AlertDialogAction
               onClick={async () => {
                 if (confirmPaidTableId) {
+                  // 1. Imprimir a conta da mesa
+                  await requestBill(confirmPaidTableId, true);
+
+                  // 2. Fechar comanda(s) ou mesa (envia WhatsApp e zera check-in)
                   if (settings.billingMode === 'comanda') {
                     const pedidosPagamento = pedidos.filter(
                       p => Number(p.mesa) === confirmPaidTableId && p.status === 'pagamento_pendente'

@@ -163,17 +163,18 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({ table, onClose }) =
   };
 
   const confirmPaid = async () => {
+    // 1. Imprimir a conta da mesa na impressora térmica / recibo
+    await requestBill(currentTable.id, true);
+
+    // 2. Fechar comandas / mesa e enviar mensagem de WhatsApp
     if (isComandaMode && comandas.length > 0) {
-      // Modo comanda: fechar cada comanda individualmente (envia conta individual por WhatsApp)
       for (const comanda of comandas) {
         if (comanda.telefone !== 'mesa') {
           await closeComanda(currentTable.id, comanda.telefone);
         }
       }
-      // Fechar a mesa para liberar o estado no backend e frontend
       await closeTable(currentTable.id);
     } else {
-      // Modo mesa: fechar mesa inteira
       await closeTable(currentTable.id);
     }
     setConfirmPaidOpen(false);

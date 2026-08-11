@@ -1709,7 +1709,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setUndoAction({ type: 'close_table', data: table, timestamp: Date.now() });
 
       const currentSettings = settingsRef.current;
-      const shouldSkipWebhook = skipWebhook || currentSettings.billingMode === 'comanda';
+      const shouldSkipWebhook = skipWebhook;
 
       let customerName = 'Mesa';
       let customerPhone = 'Não informado';
