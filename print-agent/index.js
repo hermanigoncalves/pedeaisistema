@@ -495,7 +495,7 @@ async function executeSinglePrintTask(task) {
       const qty = item.quantidade || item.quantity || 1;
       const nome = stripAccents(item.nome || item.productName || '?');
       const preco = (item.preco || item.price || 0).toFixed(2);
-      let obs = item.descricao || item.description || (itens.length === 1 && pedido.descricao && !isBill ? pedido.descricao : '');
+      let obs = item.descricao || item.description || (!isBill && pedido.descricao ? pedido.descricao : '');
 
       if (obs) {
         obs = cleanObsText(obs);
