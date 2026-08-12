@@ -10,7 +10,8 @@ import {
   X,
   Radio,
   Server,
-  Bluetooth
+  Bluetooth,
+  Download
 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { useImpressoras, Printer } from '@/hooks/useImpressoras';
@@ -95,6 +96,35 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
       refetchImpressoras();
     }
   }, [isOpen, checkAgentHealth, refetchImpressoras]);
+
+  const handleDownloadPrintAgent = () => {
+    const batContent = `@echo off
+title PedeAi - Agente de Impressao Local
+echo ========================================================
+echo   Iniciando Agente de Impressao PedeAi (Porta 3001)
+echo ========================================================
+echo.
+cd /d "%~dp0print-agent"
+if not exist "node_modules" (
+    echo Instalando dependencias do Agente de Impressao...
+    npm install
+)
+echo.
+echo Conectando agente de impressao...
+node index.js
+pause
+`;
+    const blob = new Blob([batContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'INICIAR_AGENTE_IMPRESSAO.bat';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Download do script INICIAR_AGENTE_IMPRESSAO.bat iniciado!');
+  };
 
   const handleConnectBluetooth = async (printerId: string = 'default') => {
     setIsConnectingBt(true);
@@ -223,16 +253,28 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
                   Agente Local de Impressão (Node.js)
                 </span>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={checkAgentHealth}
-                disabled={isChecking}
-                className="h-7 text-xs px-2 gap-1 rounded-lg hover:bg-muted"
-              >
-                <RefreshCw className={`w-3 h-3 ${isChecking ? 'animate-spin' : ''}`} />
-                <span>Verificar</span>
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadPrintAgent}
+                  className="h-7 text-xs px-2 gap-1.5 rounded-lg border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary font-medium"
+                  title="Baixar o arquivo executavel INICIAR_AGENTE_IMPRESSAO.bat para o Windows"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Baixar Agente (.bat)</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={checkAgentHealth}
+                  disabled={isChecking}
+                  className="h-7 text-xs px-2 gap-1 rounded-lg hover:bg-muted"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isChecking ? 'animate-spin' : ''}`} />
+                  <span>Verificar</span>
+                </Button>
+              </div>
             </div>
 
             <div className="flex items-center justify-between pt-1">

@@ -267,6 +267,35 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     fetchWindowsPrinters();
   }, [isOpen]);
 
+  const handleDownloadPrintAgent = () => {
+    const batContent = `@echo off
+title PedeAi - Agente de Impressao Local
+echo ========================================================
+echo   Iniciando Agente de Impressao PedeAi (Porta 3001)
+echo ========================================================
+echo.
+cd /d "%~dp0print-agent"
+if not exist "node_modules" (
+    echo Instalando dependencias do Agente de Impressao...
+    npm install
+)
+echo.
+echo Conectando agente de impressao...
+node index.js
+pause
+`;
+    const blob = new Blob([batContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'INICIAR_AGENTE_IMPRESSAO.bat';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Download do script INICIAR_AGENTE_IMPRESSAO.bat iniciado!');
+  };
+
   const [editingProduct, setEditingProduct] = useState<string | null>(null);
   const [editingProductData, setEditingProductData] = useState<Partial<Product> | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<string | null>(null);
@@ -1144,6 +1173,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                         }}
                       />
                     </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDownloadPrintAgent}
+                      className="gap-1.5 border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary font-medium"
+                      title="Baixar o arquivo executavel INICIAR_AGENTE_IMPRESSAO.bat para o Windows"
+                    >
+                      <Download className="w-4 h-4" />
+                      Baixar Agente (.bat)
+                    </Button>
                     <Button 
                       variant="outline" 
                       size="sm" 
