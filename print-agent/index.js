@@ -770,6 +770,52 @@ async function handleBillClosed(pedido) {
   enqueuePrintTask('receipt', pedido, itensAgrupados, true, divisoes);
 }
 
+// ─── Sincronização Automática de Pedidos do Banco (Recuperação Offline) ────────
+
+const processedOrdersHistory = new Set();
+
+/**
+ * Busca pedidos recentes no banco que ainda não foram processados ou impressos.
+ * Garante recuperação total em caso de queda de internet, impressora offline ou reinício do agent.
+ */
+async function syncMissedOrders() {
+  if (!RESTAURANTE_ID) return;
+  try {
+    const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(); // últimos 2h
+    const { data: recentOrders, error } = await supabase
+      .from('Pedidos')
+      .select('*')
+      .eq('restaurante_id', RESTAURANTE_ID)
+      .gte('created_at', cutoff)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+
+    if (recentOrders && recentOrders.length > 0) {
+      let syncCount = 0;
+      for (const p of recentOrders) {
+        if (processedOrdersHistory.has(String(p.id))) continue;
+        
+        // Registrar como conhecido para não reprocessar repetidamente
+        processedOrdersHistory.add(String(p.id));
+
+        if (p.status === 'Pendente' || p.status === 'pendente') {
+          syncCount++;
+          await handleNewOrder(p);
+        } else if (p.status === 'pagamento_pendente' || p.descricao === 'Fechamento de Conta') {
+          syncCount++;
+          await handleBillClosed(p);
+        }
+      }
+      if (syncCount > 0) {
+        console.log(`[PrintAgent] 🔄 Sincronizacao de banco: ${syncCount} pedido(s) recente(s) recuperado(s) e enfileirado(s).`);
+      }
+    }
+  } catch (err) {
+    console.error('[PrintAgent] ⚠️ Erro ao sincronizar pedidos recentes do banco:', err.message);
+  }
+}
+
 // ─── Supabase Realtime ────────────────────────────────────────────────────────
 
 // Canais globais de realtime
@@ -793,22 +839,24 @@ function setupChannels() {
       },
       async (payload) => {
         const pedido = payload.new;
-        queuePrint(async () => {
-          try {
-            if (pedido.status === 'pagamento_pendente' || pedido.descricao === 'Fechamento de Conta') {
-              await handleBillClosed(pedido);
-            } else {
-              await handleNewOrder(pedido);
-            }
-          } catch (err) {
-            console.error('[PrintAgent] Erro ao processar pedido:', err);
+        if (pedido && pedido.id) {
+          processedOrdersHistory.add(String(pedido.id));
+        }
+        try {
+          if (pedido.status === 'pagamento_pendente' || pedido.descricao === 'Fechamento de Conta') {
+            await handleBillClosed(pedido);
+          } else {
+            await handleNewOrder(pedido);
           }
-        });
+        } catch (err) {
+          console.error('[PrintAgent] Erro ao processar pedido:', err);
+        }
       }
     )
-    .subscribe((status) => {
+    .subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         console.log('[PrintAgent] ✅ Conectado aos Pedidos Realtime!');
+        await syncMissedOrders();
       }
     });
 
