@@ -146,6 +146,50 @@ function sendToNetworkPrinter(host: string, port: number, buffer: Buffer, timeou
   });
 }
 
+function parseItens(pedido: any): any[] {
+  if (!pedido || !pedido.itens) return [];
+
+  let rawItens = pedido.itens;
+  if (Array.isArray(rawItens)) return rawItens;
+
+  if (typeof rawItens === 'object') return [rawItens];
+
+  const str = String(rawItens).trim();
+  if (!str) return [];
+
+  // 1. Se for JSON Array [ ... ]
+  if (str.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(str);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) {
+      // ignora e faz fallback
+    }
+  }
+
+  // 2. Se for JSON Object { ... }
+  if (str.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(str);
+      if (parsed && typeof parsed === 'object') return [parsed];
+    } catch (e) {
+      // ignora e faz fallback
+    }
+  }
+
+  // 3. String simples (ex: "Pizza Calabresa", "Soda Italiana Tangerina")
+  const qtd = Math.max(1, parseInt(pedido.quantidade, 10) || 1);
+  const subtotal = parseFloat(String(pedido.Subtotal || '0').replace('R$', '').replace(',', '.').trim()) || 0;
+  const unitPrice = subtotal > 0 ? subtotal / qtd : 0;
+
+  return [{
+    nome: str,
+    quantidade: qtd,
+    preco: unitPrice,
+    descricao: pedido.descricao || ''
+  }];
+}
+
 /**
  * Processa um pedido vindo do Supabase Realtime de forma isolada por restaurante_id.
  */
@@ -175,13 +219,7 @@ async function processOrderForCloudPrint(pedido: any) {
     const restauranteNome = restData?.nome || 'RESTAURANTE';
 
     // 3. Extrair itens do pedido
-    let itens = [];
-    try {
-      itens = typeof pedido.itens === 'string' ? JSON.parse(pedido.itens) : (pedido.itens || []);
-    } catch (e) {
-      itens = [];
-    }
-
+    const itens = parseItens(pedido);
     if (itens.length === 0) return;
 
     // 4. Identificar impressoras de rede TCP (ex: 192.168.1.200:9100 ou IP preenchido no campo interface)

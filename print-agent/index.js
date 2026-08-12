@@ -283,8 +283,8 @@ function createPrintersList(station) {
     }).filter(Boolean);
   }
 
-  // 2. Fallback: Configurações locais legadas do .env (lidas dinamicamente)
-  const cfg = {
+  // 2. Fallback: Configurações locais legadas do .env (lidas dinamicamente com fallback para impressora única)
+  const envConfigs = {
     kitchen: {
       type: process.env.PRINTER_KITCHEN_TYPE,
       host: process.env.PRINTER_KITCHEN_HOST,
@@ -303,7 +303,15 @@ function createPrintersList(station) {
       port: process.env.PRINTER_RECEIPT_PORT || '9100',
       usb: process.env.PRINTER_RECEIPT_USB,
     },
-  }[station];
+  };
+
+  let cfg = envConfigs[station];
+  // Se a estação específica (ex: bar) não tiver impressora no .env, usa a impressora de cozinha ou recibo disponível
+  if (!cfg || (!cfg.host && !cfg.usb)) {
+    cfg = (envConfigs.kitchen.host || envConfigs.kitchen.usb)
+      ? envConfigs.kitchen
+      : (envConfigs.receipt.host || envConfigs.receipt.usb ? envConfigs.receipt : envConfigs.bar);
+  }
 
   if (!cfg || (!cfg.host && !cfg.usb)) return [];
 
