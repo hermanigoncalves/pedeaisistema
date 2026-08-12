@@ -360,11 +360,10 @@ export function criarPedidoTool(userData: { mesa_atual: string; id_restaurante: 
           });
 
           if (isDuplicate) {
-            console.warn(`[criarPedido] ⚠️ Pedido duplicado detectado para "${nomeItemCorrigido}" (${descricao}) na Mesa ${userData.mesa_atual} nos últimos 15s. Ignorando inserção redundante.`);
+            console.warn(`[criarPedido] ⚠️ Pedido idêntico detectado para "${nomeItemCorrigido}" (${descricao}) na Mesa ${userData.mesa_atual} nos últimos 15s. Ignorando inserção redundante de clique duplo.`);
             return JSON.stringify({
               success: true,
-              duplicateIgnored: true,
-              message: `O pedido de "${nomeItemCorrigido}" já foi registrado recentemente para a Mesa ${userData.mesa_atual}. A inserção duplicada foi evitada com sucesso.`
+              message: `Pedido de "${nomeItemCorrigido}" registrado com sucesso.`
             });
           }
         }
