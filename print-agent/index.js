@@ -701,7 +701,7 @@ function classifyItemLegacy(itemName) {
 // ─── Batching de pedidos por mesa/estação (1 cupom por estação) ───────────────
 
 const pendingOrderBatches = new Map();
-const BATCH_DELAY_MS = 2500; // Aguarda 2.5s sem novos pedidos da mesma mesa para agrupar em 1 cupom por estação
+const BATCH_DELAY_MS = 1500; // Aguarda 1.5s sem novos pedidos da mesma mesa para agrupar em 1 cupom por estação
 
 function consolidateItems(itemsList) {
   const map = new Map();
@@ -902,12 +902,12 @@ async function syncMissedOrders() {
         // Registrar como conhecido para não reprocessar repetidamente
         processedOrdersHistory.add(String(p.id));
 
-        if (p.status === 'Pendente' || p.status === 'pendente') {
-          syncCount++;
-          await handleNewOrder(p);
-        } else if (p.status === 'pagamento_pendente' || p.descricao === 'Fechamento de Conta') {
+        if (p.status === 'pagamento_pendente' || p.descricao === 'Fechamento de Conta') {
           syncCount++;
           await handleBillClosed(p);
+        } else if (p.status !== 'fechado' && p.status !== 'cancelado') {
+          syncCount++;
+          await handleNewOrder(p);
         }
       }
       if (syncCount > 0) {
@@ -918,6 +918,11 @@ async function syncMissedOrders() {
     console.error('[PrintAgent] ⚠️ Erro ao sincronizar pedidos recentes do banco:', err.message);
   }
 }
+
+// Polling periódico do banco a cada 3 segundos como redundância infalível ao Realtime
+setInterval(async () => {
+  await syncMissedOrders();
+}, 3000);
 
 // ─── Supabase Realtime ────────────────────────────────────────────────────────
 
