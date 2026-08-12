@@ -698,38 +698,90 @@ function classifyItemLegacy(itemName) {
 
 // ─── Handler de novo pedido ────────────────────────────────────────────────────
 
+// ─── Batching de pedidos por mesa/estação (1 cupom por estação) ───────────────
+
+const pendingOrderBatches = new Map();
+const BATCH_DELAY_MS = 2500; // Aguarda 2.5s sem novos pedidos da mesma mesa para agrupar em 1 cupom por estação
+
+function consolidateItems(itemsList) {
+  const map = new Map();
+  for (const item of itemsList) {
+    const key = `${(item.nome || item.productName || '').trim().toLowerCase()}_${(item.descricao || '').trim().toLowerCase()}`;
+    if (map.has(key)) {
+      const existing = map.get(key);
+      existing.quantidade = (existing.quantidade || 1) + (item.quantidade || 1);
+    } else {
+      map.set(key, { ...item, quantidade: item.quantidade || 1 });
+    }
+  }
+  return Array.from(map.values());
+}
+
 async function handleNewOrder(pedido) {
   console.log(`[PrintAgent] 🆕 Novo pedido #${pedido.id} — Mesa ${pedido.mesa}`);
 
-  const itens = parseItens(pedido);
-  if (itens.length === 0) {
+  const rawItens = parseItens(pedido);
+  if (rawItens.length === 0) {
     console.log('[PrintAgent] Nenhum item valido para imprimir.');
     return;
   }
 
-  // Limpa sufixos de impressora como "(KA-1445)" ou "PRODUCAO:" da observação do pedido
+  const mesa = String(pedido.mesa || '0');
   const cleanPedidoDesc = cleanObsText(pedido.descricao || '');
 
-  // Para pedidos de produção, IMPRIME OBRIGATORIAMENTE 1 CUPOM INDIVIDUAL SEPARADO PARA CADA PRODUTO
-  const hasAllPrinter = activePrinters.some(p => p.tipo === 'all' && p.ativo === true);
+  const processedItems = rawItens.map(item => ({
+    ...item,
+    descricao: item.descricao || item.description || cleanPedidoDesc,
+    pedidoId: pedido.id,
+    usuario_nome: pedido.usuario_nome
+  }));
 
-  if (hasAllPrinter) {
-    for (let idx = 0; idx < itens.length; idx++) {
-      const item = itens[idx];
-      const itemObs = item.descricao || item.description || cleanPedidoDesc;
-      enqueuePrintTask('all', { ...pedido, descricao: cleanPedidoDesc }, [{ ...item, descricao: itemObs }], false, undefined, idx);
-    }
-    return; // Se impresso na estação geral 'all', finaliza para evitar duplicidade
+  if (!pendingOrderBatches.has(mesa)) {
+    pendingOrderBatches.set(mesa, {
+      pedidoSample: { ...pedido, descricao: cleanPedidoDesc },
+      items: [],
+      timer: null
+    });
   }
 
-  // Caso contrário, direcionar especificamente item por item para as estações individuais (Cozinha / Bar)
-  for (let idx = 0; idx < itens.length; idx++) {
-    const item = itens[idx];
-    const station = getItemStation(item.nome || item.productName, item.productId || item.id);
-    const itemObs = item.descricao || item.description || cleanPedidoDesc;
+  const batch = pendingOrderBatches.get(mesa);
+  batch.items.push(...processedItems);
+  batch.pedidoSample = { ...pedido, descricao: cleanPedidoDesc };
 
-    // Enfileira cada produto em seu próprio cupom individual com corte de papel
-    enqueuePrintTask(station, { ...pedido, descricao: cleanPedidoDesc }, [{ ...item, descricao: itemObs }], false, undefined, idx);
+  if (batch.timer) {
+    clearTimeout(batch.timer);
+  }
+
+  batch.timer = setTimeout(() => {
+    flushOrderBatch(mesa);
+  }, BATCH_DELAY_MS);
+}
+
+function flushOrderBatch(mesa) {
+  const batch = pendingOrderBatches.get(mesa);
+  if (!batch || batch.items.length === 0) return;
+
+  pendingOrderBatches.delete(mesa);
+
+  const { pedidoSample, items } = batch;
+  console.log(`[PrintAgent] 📦 Processando lote agrupado da Mesa ${mesa} — Total de ${items.length} item(ns).`);
+
+  const hasAllPrinter = activePrinters.some(p => p.tipo === 'all' && p.ativo === true);
+  const stationGroups = new Map();
+
+  for (const item of items) {
+    const station = hasAllPrinter ? 'all' : getItemStation(item.nome || item.productName, item.productId || item.id);
+    if (!stationGroups.has(station)) {
+      stationGroups.set(station, []);
+    }
+    stationGroups.get(station).push(item);
+  }
+
+  let idx = 0;
+  for (const [station, stationItems] of stationGroups.entries()) {
+    const consolidated = consolidateItems(stationItems);
+    console.log(`[PrintAgent] 🖨️ Enfileirando cupom da estacao [${station.toUpperCase()}] com ${consolidated.length} item(ns) para Mesa ${mesa}`);
+    enqueuePrintTask(station, pedidoSample, consolidated, false, undefined, idx++);
   }
 }
 

@@ -342,8 +342,8 @@ export function criarPedidoTool(userData: { mesa_atual: string; id_restaurante: 
           console.warn(`[criarPedido] ⚠️ Preço divergente para "${nomeItemCorrigido}": IA enviou R$${subtotalIA}, banco tem R$${precoUnitarioReal}/un × ${qtdFinal} = R$${subtotalCorreto}. Aplicando preço real calculado do banco.`);
         }
 
-        // 7. Trava de Antiduplicação (Idempotência temporal de 60s)
-        const cutoff = new Date(Date.now() - 60 * 1000).toISOString();
+        // 7. Trava de Antiduplicação (Idempotência temporal de 15s)
+        const cutoff = new Date(Date.now() - 15 * 1000).toISOString();
         const { data: recentOrders } = await supabase.client
           .from('Pedidos')
           .select('id, created_at, itens, descricao')
@@ -355,11 +355,12 @@ export function criarPedidoTool(userData: { mesa_atual: string; id_restaurante: 
         if (recentOrders && recentOrders.length > 0) {
           const isDuplicate = recentOrders.some((p: any) => {
             const sameItem = p.itens?.trim().toLowerCase() === nomeItemCorrigido.trim().toLowerCase();
-            return sameItem;
+            const sameDesc = (p.descricao || '').trim().toLowerCase() === (descricao || '').trim().toLowerCase();
+            return sameItem && sameDesc;
           });
 
           if (isDuplicate) {
-            console.warn(`[criarPedido] ⚠️ Pedido duplicado detectado para "${nomeItemCorrigido}" na Mesa ${userData.mesa_atual} nos últimos 60s. Ignorando inserção redundante.`);
+            console.warn(`[criarPedido] ⚠️ Pedido duplicado detectado para "${nomeItemCorrigido}" (${descricao}) na Mesa ${userData.mesa_atual} nos últimos 15s. Ignorando inserção redundante.`);
             return JSON.stringify({
               success: true,
               duplicateIgnored: true,
