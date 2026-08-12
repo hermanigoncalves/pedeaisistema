@@ -429,6 +429,7 @@ async function printCupom(station, pedido, itens, isBill = false, divisoes = und
     printer.drawLine();
     printer.alignCenter();
     printer.println('Obrigado pela preferenca!');
+    printer.println('Sistema PedeAi');
     printer.cut();
 
     try {

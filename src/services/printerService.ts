@@ -347,7 +347,8 @@ const generateEscPosData = (
   // Rodapé
   add('\n\n');
   addCmd(COMMANDS.TEXT_CENTER);
-  add('Obrigado pela preferencia!\n\n\n\n');
+  add('Obrigado pela preferencia!\n');
+  add('Sistema PedeAi\n\n\n\n');
 
   // Cortar papel
   addCmd(COMMANDS.CUT);
@@ -580,7 +581,8 @@ export const generateTextCupom = (
     out += `\nOBS: ${removeAccents(pedido.descricao)}\n`;
   }
   
-  out += `\nObrigado pela preferencia!\n\n\n\n`;
+  out += `\nObrigado pela preferencia!\n`;
+  out += `Sistema PedeAi\n\n\n\n`;
   return out;
 };
 
@@ -686,7 +688,7 @@ export const printViaBrowser = (
   <hr>
   <table>${itensHtml}${totalHtml}</table>
   ${obsHtml}
-  <div class="footer">Obrigado pela preferência!</div>
+  <div class="footer">Obrigado pela preferência!<br>Sistema PedeAí</div>
 </body>
 </html>`;
 
