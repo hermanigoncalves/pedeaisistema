@@ -218,11 +218,50 @@ async function loadPrintersFromDb() {
       if (p.conexao === 'tcp') {
         console.log(`   - [${p.tipo.toUpperCase()}] ${p.nome}: Rede IP ${p.ip}:${p.porta || 9100}`);
       } else if (p.conexao === 'usb') {
-        console.log(`   - [${p.tipo.toUpperCase()}] ${p.nome}: USB Path ${p.usb_path}`);
+        console.log(`   - [${p.tipo.toUpperCase()}] ${p.nome}: Dispositivo/USB ${p.usb_path}`);
       }
     });
+
+    listSystemPrinters();
   } catch (err) {
     console.error('[PrintAgent] ❌ Erro ao carregar impressoras do Supabase:', err.message);
+  }
+}
+
+/**
+ * Detecta e lista as impressoras locais conectadas no Windows/Bluetooth/USB
+ */
+function listSystemPrinters() {
+  try {
+    const platform = process.platform;
+    let printers = [];
+
+    if (platform === 'win32') {
+      const raw = exec('wmic printer get Name /format:list', { encoding: 'utf-8' });
+      // Executado em modo rapido
+      const { execSync } = require('child_process');
+      const rawSync = execSync('wmic printer get Name /format:list', { encoding: 'utf-8', timeout: 3000 });
+      printers = rawSync
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(l => l.startsWith('Name='))
+        .map(l => l.replace(/^Name=/, '').trim())
+        .filter(Boolean);
+    } else {
+      const { execSync } = require('child_process');
+      const rawSync = execSync('lpstat -e 2>/dev/null || lpstat -a 2>/dev/null', { encoding: 'utf-8', timeout: 3000 });
+      printers = rawSync
+        .split(/\r?\n/)
+        .map(l => l.split(' ')[0].trim())
+        .filter(Boolean);
+    }
+
+    if (printers.length > 0) {
+      console.log(`[PrintAgent] 🔍 Impressoras detectadas no Sistema Operacional / Windows (${printers.length}):`);
+      printers.forEach(p => console.log(`   * ${p}`));
+    }
+  } catch (err) {
+    // Ignora silenciosamente se o comando de SO nao responder
   }
 }
 
