@@ -267,6 +267,29 @@ class SupabaseAdapter {
     if (error) console.error('[Supabase] Erro saveMensagem:', error.message);
     return data;
   }
+
+  async getRecentMensagens(telefone: string, restaurante_id?: string, limit = 20) {
+    let query = this.client
+      .from('mensagens')
+      .select('conteudo, direcao, created_at')
+      .eq('telefone', telefone);
+
+    if (restaurante_id) {
+      query = query.eq('restaurante_id', restaurante_id);
+    }
+
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('[Supabase] Erro ao buscar histórico de mensagens:', error.message);
+      return [];
+    }
+
+    return (data || []).reverse();
+  }
 }
 
 export const supabase = new SupabaseAdapter();
+

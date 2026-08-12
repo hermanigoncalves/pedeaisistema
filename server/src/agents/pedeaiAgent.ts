@@ -3,9 +3,11 @@ import { createOpenAIToolsAgent, AgentExecutor } from 'langchain/agents';
 import { ChatPromptTemplate, MessagesPlaceholder } from '@langchain/core/prompts';
 import { BufferWindowMemory } from 'langchain/memory';
 import { ChatMessageHistory } from 'langchain/stores/message/in_memory';
+import { HumanMessage, AIMessage } from '@langchain/core/messages';
 import { config } from '../config';
 import { UserData } from '../types';
 import { supabase } from '../adapters/supabaseAdapter';
+
 
 // Tools
 import { criarPedidoTool } from './tools/criarPedidoTool';
@@ -81,8 +83,9 @@ Fale sempre em português brasileiro, sem termos técnicos, sem mostrar logs ou 
 - Se não está no contexto retornado por \`Produtos_cardapio\` ou \`Get_Macarroes\`, **NÃO EXISTE**. Nunca invente pratos, opcionais, variações, sabores ou preços.
 - "Chamar o garçom", "Garçom" ou "Atendimento" são SERVIÇOS DE ATENDIMENTO, NUNCA produtos do cardápio. Você está SUMARIAMENTE PROIBIDO de buscar ou cadastrar "garçom" como produto. Se solicitado, informe que isso deve ser tratado por outro fluxo (chamar o garçom), você não lida com isso.
 
-## 📋 CARDÁPIO, BUSCA POR APROXIMAÇÃO E VINHOS:
-As regras detalhadas de exibição do cardápio completo, busca flexível/aproximação e listagem de vinhos estão definidas no **Módulo de Regras Mandatórias Globais**, que é anexado a toda requisição — siga-as integralmente. Sua responsabilidade aqui é **executá-las** usando \`Produtos_cardapio\` e \`Get_Macarroes\` como fonte de dados. Em caso de qualquer dúvida sobre formato de exibição, o Módulo Global prevalece.
+## 📋 CARDÁPIO, BUSCA POR APROXIMAÇÃO E OPÇÃO ÚNICA:
+- Ao buscar itens via \`Produtos_cardapio\`: se o retorno trouxer APENAS UMA opção de produto correspondente à busca do cliente (ex: apenas "Coca-Cola Lata 350ml"), use e resolva diretamente essa única opção sem perguntar sobre variações ou embalagens inexistentes (como "garrafa ou lata"). Se houver 2 ou mais opções ativas correspondentes (ex: Lata 350ml e 2L), consulte o cliente citando os nomes exatos e preços do retorno.
+- As regras detalhadas de exibição do cardápio completo, busca flexível/aproximação e listagem de vinhos estão definidas no **Módulo de Regras Mandatórias Globais**, que é anexado a toda requisição — siga-as integralmente. Sua responsabilidade aqui é **executá-las** usando \`Produtos_cardapio\` e \`Get_Macarroes\` como fonte de dados. Em caso de qualquer dúvida sobre formato de exibição, o Módulo Global prevalece.
 
 ## 📦 DISPONIBILIDADE E ESTOQUE:
 - Se um produto retornado tiver estoque ≤ 0 ou "disponivel" = falso, trate como INDISPONÍVEL. Informe isso ao cliente se ele perguntar/pedir por esse item, e sugira uma alternativa ativa disponível no retorno.
@@ -114,7 +117,9 @@ export const SYSTEM_PROMPT_VENDAS = `# REGRAS DE PEDIDOS
 
 ## ⚠️ REGRA FUNDAMENTAL — VALIDAÇÃO ANTES DE REGISTRAR:
 - Você NUNCA executa \`Criar_pedido\` para um item sem antes ter confirmado nome exato, preço e disponibilidade via \`Produtos_cardapio\`.
-- Se \`Produtos_cardapio\` retornar uma ambiguidade ou múltiplas opções, pergunte ao cliente e aguarde a resposta antes de prosseguir.
+- **REGRA DE OPÇÃO ÚNICA VS. AMBIGUIDADE REAL**:
+  - Se \`Produtos_cardapio\` retornar apenas **UMA** opção ativa para a busca do cliente (ex: o cardápio só possui "Coca-Cola Lata 350ml"), você está **SUMARIAMENTE PROIBIDO** de perguntar por garrafa, lata, tamanho ou embalagem. Assuma e confirme diretamente essa única opção existente!
+  - Se \`Produtos_cardapio\` retornar **MÚLTIPLAS** opções ativas distintas para aquele produto (ex: "Coca-Cola Lata 350ml" e "Coca-Cola 2L"), pergunte ao cliente citando **EXATAMENTE** os nomes e preços das opções reais do retorno antes de prosseguir. NUNCA invente opções que não estejam no retorno.
 
 ## 🙋 GARÇOM DURANTE PEDIDO:
 - Se o cliente pedir para chamar o garçom a qualquer momento (mesmo no meio de um pedido), execute \`Chama_garcom\` imediatamente E continue o fluxo de pedido normalmente. "Garçom"/"Atendimento" NUNCA é um produto do cardápio.
@@ -123,7 +128,7 @@ export const SYSTEM_PROMPT_VENDAS = `# REGRAS DE PEDIDOS
 - Para QUALQUER bebida com volume ≥ 600ml (ex: Cerveja 600ml/Litrão, Refrigerante 600ml/1L/1.5L/2L, Sucos em Jarra, Garrafas de Vinho/Destilados, Baldes), é SUMARIAMENTE OBRIGATÓRIO perguntar a quantidade de copos antes de registrar.
 - Você está TERMINANTEMENTE PROIBIDO de executar \`Criar_pedido\` para essas bebidas antes da resposta do cliente. Pergunte:
   *"Quantos copos você vai querer para a [Bebida]? 😊"*
-- **EXCEÇÕES — bebidas individuais (\< 600ml):** Cervejas em lata (350ml/473ml), Long Neck (330ml/355ml), Refrigerante em lata (350ml/290ml), Água mineral, Taças de vinho, Doses de destilados, Sucos em copo individual. PROIBIDO perguntar copos para essas — registre imediatamente.
+- **EXCEÇÕES — bebidas individuais (< 600ml):** Cervejas em lata (350ml/473ml), Long Neck (330ml/355ml), Refrigerante em lata (350ml/290ml), Água mineral, Taças de vinho, Doses de destilados, Sucos em copo individual. PROIBIDO perguntar copos para essas — registre imediatamente.
 - **Cálculo com copos:** A quantidade de copos é só orientação para o garçom. NÃO muda quantidade nem subtotal do produto.
   Exemplo: 1 Cerveja Heineken 600ml (R$ 12,00) com 3 copos → banco: quantidade "1", Subtotal "12.00", descrição "Copos: 3". NUNCA multiplique o subtotal pelos copos!
 
@@ -146,7 +151,7 @@ export const SYSTEM_PROMPT_VENDAS = `# REGRAS DE PEDIDOS
 - Se o cliente responder "só pra mim" ou "1 copo" após a pergunta de copos, isso é resposta da bebida pendente — crie só ela.
 
 ## 🔀 INTENÇÃO MISTA NA MESMA MENSAGEM:
-- Se a mensagem do cliente contiver além do pedido uma intenção de conta ou garçom (ex: "quero mais uma coca e já pode trazer a conta"), execute AMBAS as ações: registre o pedido E execute a tool correspondente (\`Conta_Solicitada\` ou \`Chama_garcom\`).
+- Se a mensagem do cliente contiver além do pedido uma intenção de conta ou garçom (ex: "traz a conta, mas antes quero mais uma cerveja"), execute AMBAS as ações: registre o pedido E execute a tool correspondente (\`Conta_Solicitada\` ou \`Chama_garcom\`).
 - Nunca ignore silenciosamente uma segunda intenção.
 
 ## ⚠️ TRATAMENTO DE ERRO NA CRIAÇÃO (ESTOQUE ZERADO):
@@ -196,10 +201,14 @@ As regras abaixo são anexadas a toda requisição e têm prioridade em caso de 
 ## 📋 EXIBIÇÃO DO CARDÁPIO INTEIRO (MANDATÓRIO):
 - Sempre que o cliente solicitar ou perguntar pelo cardápio (ex: "me manda o cardápio", "o que tem no cardápio", "opções do cardápio"), execute \`Produtos_cardapio\` e retorne o CARDÁPIO INTEIRO COMPLETO, organizado por categorias, com TODOS os produtos ativos e seus preços em R$. PROIBIDO resumir, omitir categorias ou enviar apenas parte do cardápio.
 
-## 🔎 BUSCA FLEXÍVEL E CONFIRMAÇÃO POR APROXIMAÇÃO:
-- Ao receber um nome simplificado, sinônimo, marca ou variação de digitação de um prato/bebida (ex: "Bolonhesa", "Coca Zero", "Calabresa"), execute \`Produtos_cardapio\`.
-- PROIBIDO dizer que um prato não existe se houver item equivalente no retorno.
-- Se o nome não for 100% idêntico ou houver ambiguidade, pergunte: *"Você se refere ao [Nome do Produto] (R$ [Preço])? 😊"*
+## 🔎 BUSCA FLEXÍVEL, RESOLUÇÃO DE ITENS E REGRA DE AMBIGUIDADE DE EMBALAGEM/TAMANHO:
+- Ao receber um nome simplificado, marca, sinônimo ou variação de digitação de um produto (ex: "Coca", "Coca-Cola", "Heineken", "Bolonhesa"), execute \`Produtos_cardapio\`.
+- **REGRA DE OURO DA OPÇÃO ÚNICA (PROIBIDO INVENTAR EMBALAGEM / FORMATO / TAMANHO)**:
+  - **SE HOUVER APENAS UMA OPÇÃO ATIVA** no retorno de \`Produtos_cardapio\` correspondente ao que o cliente pediu (ex: existe apenas "Coca-Cola Lata 350ml"): você está **SUMARIAMENTE PROIBIDO** de perguntar se o cliente quer "garrafa ou lata", "qual tamanho" ou "qual embalagem". Selecione e confirme diretamente esse único produto existente no cardápio!
+  - **SE HOUVER DUAS OU MAIS OPÇÕES ATIVAS** distintas correspondentes no retorno de \`Produtos_cardapio\` (ex: "Coca-Cola Lata 350ml" R$ 6,00 E "Coca-Cola 2L" R$ 14,00): pergunte ao cliente apresentando **EXATAMENTE** os nomes e preços das opções reais retornadas (ex: *"Temos Coca-Cola Lata 350ml por R$ 6,00 e Coca-Cola 2L por R$ 14,00. Qual você prefere? 😊"*).
+  - **PROIBIÇÃO DE OPÇÕES FANTASMAS**: NUNCA invente formatos ou opções (como "garrafa") que não existam como produtos ativos no retorno real de \`Produtos_cardapio\`.
+- PROIBIDO dizer que um prato/bebida não existe se houver item equivalente no retorno de \`Produtos_cardapio\`.
+- Se o nome não for 100% idêntico mas houver apenas uma opção equivalente clara, confirme diretamente com o cliente citando a única opção: *"Você se refere ao [Nome do Produto] (R$ [Preço])? 😊"*
 
 ## 🍷 LISTAGEM COMPLETA DE VINHOS:
 - Ao ser perguntado sobre vinhos, execute \`Produtos_cardapio\`, filtre todos os itens contendo "Vinho" no nome ou na categoria, e liste TODOS de uma vez — não apenas um formato (ex: só Jarra) ou um tipo (ex: só Tinto). Organize por formato (Taça / Jarra / Garrafa) e tipo (Tinto / Branco), com Nome Exato e Preço de cada um.
@@ -233,7 +242,7 @@ const MEMORY_TTL_MS = 2 * 60 * 60 * 1000; // 2 horas
 const memoryCache = new Map<string, BufferWindowMemory>();
 const memoryCacheTimestamps = new Map<string, number>();
 
-function getMemory(phone: string): BufferWindowMemory {
+async function getMemory(phone: string, restauranteId?: string): Promise<BufferWindowMemory> {
   const now = Date.now();
   const lastAccess = memoryCacheTimestamps.get(phone) || 0;
 
@@ -241,15 +250,34 @@ function getMemory(phone: string): BufferWindowMemory {
   if (memoryCache.has(phone) && now - lastAccess > MEMORY_TTL_MS) {
     memoryCache.delete(phone);
     memoryCacheTimestamps.delete(phone);
-    console.log(`[Agent] ⏰ Memória expirada (TTL) para ${phone.slice(0, 6)}...`);
+    console.log(`[Agent] ⏰ Memória expirada (TTL 2h) para ${phone.slice(0, 6)}...`);
   }
 
   if (!memoryCache.has(phone)) {
+    const history = new ChatMessageHistory();
+
+    // Carregar histórico recente do Supabase para manter a memória viva mesmo após reinícios
+    try {
+      const recentMsgs = await supabase.getRecentMensagens(phone, restauranteId, 20);
+      for (const msg of recentMsgs) {
+        if (msg.direcao === 'recebida') {
+          await history.addMessage(new HumanMessage(msg.conteudo));
+        } else if (msg.direcao === 'enviada') {
+          await history.addMessage(new AIMessage(msg.conteudo));
+        }
+      }
+      if (recentMsgs.length > 0) {
+        console.log(`[Agent] 📚 Memória de chat hidratada com ${recentMsgs.length} mensagens do banco para ${phone.slice(0, 6)}...`);
+      }
+    } catch (err: any) {
+      console.warn(`[Agent] Aviso ao buscar mensagens do banco para memória: ${err.message}`);
+    }
+
     memoryCache.set(
       phone,
       new BufferWindowMemory({
-        chatHistory: new ChatMessageHistory(),
-        k: 10,
+        chatHistory: history,
+        k: 20,
         returnMessages: true,
         memoryKey: 'chat_history',
         inputKey: 'input',
@@ -274,11 +302,15 @@ export function clearMemory(phone: string): void {
   }
 }
 
-// Limpa TODAS as memórias a cada 15 minutos para evitar contaminação
+// Limpa periodicamente APENAS sessões verdadeiramente inativas há mais de 2 horas (sem apagar usuários ativos)
 setInterval(() => {
-  if (memoryCache.size > 0) {
-    console.log(`[Agent] 🧹 Limpando cache de memória (${memoryCache.size} sessões)`);
-    memoryCache.clear();
+  const now = Date.now();
+  for (const [phone, lastAccess] of memoryCacheTimestamps.entries()) {
+    if (now - lastAccess > MEMORY_TTL_MS) {
+      memoryCache.delete(phone);
+      memoryCacheTimestamps.delete(phone);
+      console.log(`[Agent] 🧹 Sessão expirada removida do cache para ${phone.slice(0, 6)}...`);
+    }
   }
 }, 15 * 60 * 1000);
 
@@ -350,8 +382,8 @@ export async function runAgent(
     console.warn(`[Agent] Não foi possível buscar configurações de IA do restaurante: ${err.message}`);
   }
 
-  // Obter o histórico de chat recente
-  const memory = getMemory(phone);
+  // Obter o histórico de chat recente (hidratado se necessário)
+  const memory = await getMemory(phone, userData.id_restaurante);
 
   // 2. Definir prompt base unificado (ou concatenar especialistas)
   let basePromptText = `${SYSTEM_PROMPT_GERAL}\n\n${SYSTEM_PROMPT_CARDAPIO}\n\n${SYSTEM_PROMPT_VENDAS}\n\n${SYSTEM_PROMPT_SERVICO}`;
