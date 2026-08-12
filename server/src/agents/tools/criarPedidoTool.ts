@@ -36,23 +36,26 @@ interface ProdutoCandidato {
 function findBestMatch(
   input: string,
   candidates: ProdutoCandidato[],
-  threshold = 0.35
+  threshold = 0.45
 ): ProdutoCandidato | null {
   let bestCandidate: ProdutoCandidato | null = null;
   let minScore = Infinity;
 
-  // Normalização básica: minúsculas, remove acentos e caracteres especiais
+  // Normalização avançada: minúsculas, remove acentos, caracteres especiais e reduz múltiplos espaços
   const normalize = (str: string) =>
     str
       .trim()
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9\s]/g, '');
+      .replace(/[^a-z0-9\s]/g, '')
+      .replace(/\s+/g, ' ');
 
   const normalizedInput = normalize(input);
 
   if (!normalizedInput) return null;
+
+  const inputTokens = normalizedInput.split(' ').filter(Boolean);
 
   for (const cand of candidates) {
     const normalizedCandidate = normalize(cand.nome);
@@ -62,7 +65,24 @@ function findBestMatch(
       return cand;
     }
 
-    // 2. Match de substring seguro (proporção para favorecer o nome mais próximo)
+    // 2. Match por Tokens (ex: "coca zero" bate com "coca cola zero ks")
+    if (inputTokens.length > 0) {
+      const candidateTokens = normalizedCandidate.split(' ');
+      const matchesAllTokens = inputTokens.every(token =>
+        candidateTokens.some(ctok => ctok.includes(token) || token.includes(ctok))
+      );
+
+      if (matchesAllTokens) {
+        const score = 0.1 + (normalizedCandidate.length - normalizedInput.length) * 0.01;
+        if (score < minScore) {
+          minScore = score;
+          bestCandidate = cand;
+        }
+        continue;
+      }
+    }
+
+    // 3. Match de substring seguro
     if (normalizedCandidate.includes(normalizedInput)) {
       const score = (normalizedCandidate.length - normalizedInput.length) / normalizedCandidate.length;
       if (score < minScore) {
@@ -81,7 +101,7 @@ function findBestMatch(
       continue;
     }
 
-    // 3. Match de distância de Levenshtein
+    // 4. Match de distância de Levenshtein
     const distance = getLevenshteinDistance(normalizedInput, normalizedCandidate);
     const maxLen = Math.max(normalizedInput.length, normalizedCandidate.length);
     const score = distance / maxLen;

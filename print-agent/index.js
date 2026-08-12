@@ -375,9 +375,9 @@ function savePrintQueue() {
 /**
  * Adiciona uma tarefa de impressão à fila persistente.
  */
-function enqueuePrintTask(station, pedido, itens, isBill = false, divisoes = undefined) {
+function enqueuePrintTask(station, pedido, itens, isBill = false, divisoes = undefined, itemIndex = 0) {
   const firstItemName = (itens && itens[0] && (itens[0].nome || itens[0].productName)) || 'item';
-  const taskId = `${pedido.id}_${station}_${isBill ? 'bill' : 'prod'}_${firstItemName}`;
+  const taskId = `${pedido.id}_${station}_${isBill ? 'bill' : 'prod'}_${firstItemName}_idx${itemIndex}`;
 
   // Evita duplicata idêntica na fila ativa
   const exists = persistentPrintQueue.some(t => t.taskId === taskId);
@@ -399,7 +399,7 @@ function enqueuePrintTask(station, pedido, itens, isBill = false, divisoes = und
 
   persistentPrintQueue.push(task);
   savePrintQueue();
-  console.log(`[PrintQueue] 📥 Cupom retido/enfileirado (Total na fila: ${persistentPrintQueue.length}) — ${isBill ? 'Conta' : 'Pedido #' + pedido.id}`);
+  console.log(`[PrintQueue] 📥 Cupom retido/enfileirado (Total na fila: ${persistentPrintQueue.length}) — ${isBill ? 'Conta' : 'Pedido #' + pedido.id} (${firstItemName})`);
 
   // Tenta processar a fila imediatamente
   processPrintQueue();
@@ -666,7 +666,7 @@ async function handleNewOrder(pedido) {
     for (let idx = 0; idx < itens.length; idx++) {
       const item = itens[idx];
       const itemObs = item.descricao || item.description || cleanPedidoDesc;
-      enqueuePrintTask('all', { ...pedido, descricao: cleanPedidoDesc }, [{ ...item, descricao: itemObs }]);
+      enqueuePrintTask('all', { ...pedido, descricao: cleanPedidoDesc }, [{ ...item, descricao: itemObs }], false, undefined, idx);
     }
     return; // Se impresso na estação geral 'all', finaliza para evitar duplicidade
   }
@@ -678,7 +678,7 @@ async function handleNewOrder(pedido) {
     const itemObs = item.descricao || item.description || cleanPedidoDesc;
 
     // Enfileira cada produto em seu próprio cupom individual com corte de papel
-    enqueuePrintTask(station, { ...pedido, descricao: cleanPedidoDesc }, [{ ...item, descricao: itemObs }]);
+    enqueuePrintTask(station, { ...pedido, descricao: cleanPedidoDesc }, [{ ...item, descricao: itemObs }], false, undefined, idx);
   }
 }
 
