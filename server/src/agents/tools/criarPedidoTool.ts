@@ -153,7 +153,8 @@ export function criarPedidoTool(userData: { mesa_atual: string; id_restaurante: 
           .eq('id', userData.id_restaurante)
           .single();
 
-        const gerenciaEstoque = restData?.gerencia_estoque !== false; // Padrão true
+        // O padrão é NÃO gerenciar estoque (false) — se está ativo no cardápio, vende normalmente!
+        const gerenciaEstoque = restData?.gerencia_estoque === true;
         const meiaPizzaHabilitada = restData?.meia_pizza_habilitada ?? false;
         const cobrancaMeioAMeia = restData?.cobranca_meio_a_meio || 'mais_cara';
 
