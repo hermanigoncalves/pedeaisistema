@@ -367,10 +367,24 @@ async function printCupom(station, pedido, itens, isBill = false, divisoes = und
       const qty = item.quantidade || item.quantity || 1;
       const nome = stripAccents(item.nome || item.productName || '?');
       const preco = (item.preco || item.price || 0).toFixed(2);
-      const obs = item.descricao || item.description;
+      let obs = item.descricao || item.description || (itens.length === 1 && pedido.descricao && !isBill ? pedido.descricao : '');
 
-      printer.leftRight(`${qty}x ${nome}`, `R$${preco}`);
-      if (obs) printer.println(stripAccents(`  (${obs})`));
+      if (obs) {
+        obs = stripAccents(obs)
+          .replace(/\s*\([^)]*KA-[^)]*\)/gi, '')
+          .replace(/\s*PRODUÇÃO:?\s*[^\n]*/gi, '')
+          .trim();
+      }
+
+      if (isBill) {
+        printer.leftRight(`${qty}x ${nome}`, `R$${preco}`);
+      } else {
+        printer.println(`${qty}x ${nome}`);
+      }
+
+      if (obs) {
+        printer.println(`  (${obs})`);
+      }
     }
 
     // Totais (apenas no recibo/conta)
@@ -401,9 +415,15 @@ async function printCupom(station, pedido, itens, isBill = false, divisoes = und
       }
     }
 
-    if (pedido.descricao && !isBill) {
+    const cleanGeneralObs = (pedido.descricao || '')
+      .replace(/\s*\([^)]*KA-[^)]*\)/gi, '')
+      .replace(/\s*PRODUÇÃO:?\s*[^\n]*/gi, '')
+      .trim();
+
+    const isSingleItemObsPrinted = itens.length === 1 && !isBill;
+    if (cleanGeneralObs && !isBill && cleanGeneralObs !== 'Fechamento de Conta' && !isSingleItemObsPrinted) {
       printer.drawLine();
-      printer.println(stripAccents(`OBS: ${pedido.descricao}`));
+      printer.println(stripAccents(`OBS: ${cleanGeneralObs}`));
     }
 
     printer.drawLine();
@@ -510,18 +530,41 @@ async function handleNewOrder(pedido) {
     return;
   }
 
-  // 1. Imprimir tudo junto se houver impressora do tipo 'all' (Caixa / Imprimir Tudo)
+  // Limpa sufixos de impressora como "(KA-1445)" ou "PRODUÇÃO:" da observação do pedido
+  const cleanPedidoDesc = (pedido.descricao || '')
+    .replace(/\s*\([^)]*KA-[^)]*\)/gi, '')
+    .replace(/\s*PRODUÇÃO:?\s*[^\n]*/gi, '')
+    .trim();
+
+  // Para pedidos de produção, IMPRIME 1 CUPOM SEPARADO PARA CADA PRODUTO COM CORTE DE PAPEL
   const hasAllPrinter = activePrinters.some(p => p.tipo === 'all' && p.ativo === true);
   if (hasAllPrinter) {
-    await printCupom('all', pedido, itens);
+    for (let idx = 0; idx < itens.length; idx++) {
+      const item = itens[idx];
+      const itemObs = item.descricao || (itens.length === 1 ? cleanPedidoDesc : (idx === 0 && cleanPedidoDesc ? cleanPedidoDesc : ''));
+      await printCupom('all', { ...pedido, descricao: cleanPedidoDesc }, [{ ...item, descricao: itemObs }]);
+    }
   }
 
-  // 2. Direcionar especificamente para as estações individuais (Cozinha / Bar)
+  // Direcionar especificamente para as estações individuais (Cozinha / Bar)
   const kitchenItems = itens.filter(i => getItemStation(i.nome || i.productName, i.productId || i.id) === 'kitchen');
   const barItems = itens.filter(i => getItemStation(i.nome || i.productName, i.productId || i.id) === 'bar');
 
-  if (kitchenItems.length > 0) await printCupom('kitchen', pedido, kitchenItems);
-  if (barItems.length > 0) await printCupom('bar', pedido, barItems);
+  if (kitchenItems.length > 0) {
+    for (let idx = 0; idx < kitchenItems.length; idx++) {
+      const item = kitchenItems[idx];
+      const itemObs = item.descricao || (kitchenItems.length === 1 ? cleanPedidoDesc : (idx === 0 && cleanPedidoDesc ? cleanPedidoDesc : ''));
+      await printCupom('kitchen', { ...pedido, descricao: cleanPedidoDesc }, [{ ...item, descricao: itemObs }]);
+    }
+  }
+
+  if (barItems.length > 0) {
+    for (let idx = 0; idx < barItems.length; idx++) {
+      const item = barItems[idx];
+      const itemObs = item.descricao || (barItems.length === 1 ? cleanPedidoDesc : '');
+      await printCupom('bar', { ...pedido, descricao: cleanPedidoDesc }, [{ ...item, descricao: itemObs }]);
+    }
+  }
 }
 
 // ─── Handler de fechamento de conta ───────────────────────────────────────────

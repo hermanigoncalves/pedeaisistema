@@ -76,8 +76,7 @@ export const generatePrintHTML = (
       
       <div class="divider"></div>
       <div class="center" style="margin-top: 10px; font-size: 10px;">
-        Obrigado pela preferência!<br>
-        Sistema PedeAí - Pedidos Online
+        Obrigado pela preferência!
       </div>
       
       <script>
