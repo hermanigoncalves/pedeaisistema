@@ -224,27 +224,6 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
             </div>
           )}
 
-          {/* Impressoras Locais do LocalStorage */}
-          {localPrinters.length > 0 && dbPrinters.length === 0 && (
-            <div className="space-y-2">
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                Configuração Local ({localPrinters.length} Ativa)
-              </h4>
-              {localPrinters.map((lp: any, idx: number) => (
-                <div key={idx} className="p-3.5 rounded-xl border border-border bg-card flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <PrinterIcon className="w-4 h-4 text-primary" />
-                    <div>
-                      <span className="font-bold text-sm">{lp.name || 'Impressora Local'}</span>
-                      <p className="text-xs text-muted-foreground">{lp.connectionType || 'Bluetooth/USB Local'}</p>
-                    </div>
-                  </div>
-                  <Badge variant="secondary" className="text-[10px] font-bold">ATIVA LOCALMENTE</Badge>
-                </div>
-              ))}
-            </div>
-          )}
-
           {/* Lista de Impressoras Cadastradas */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
