@@ -9,11 +9,18 @@ import {
   Settings,
   X,
   Radio,
-  Server
+  Server,
+  Bluetooth
 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { useImpressoras, Printer } from '@/hooks/useImpressoras';
-import { getConnectedDeviceName } from '@/services/printerService';
+import { 
+  getConnectedDeviceName, 
+  connectBluetoothPrinter, 
+  printToDevice, 
+  isPrinterConnected,
+  PrintOrderData 
+} from '@/services/printerService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +41,7 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
   const { dbPrinters, refetchImpressoras } = useImpressoras(restaurantId);
   const [isAgentConnected, setIsAgentConnected] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(false);
+  const [isConnectingBt, setIsConnectingBt] = useState(false);
 
   const btDeviceName = typeof getConnectedDeviceName === 'function' ? getConnectedDeviceName() : null;
   const allPrinters = React.useMemo(() => {
@@ -61,7 +69,6 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
   }, [dbPrinters, settings.printers]);
 
   const activePrinters = allPrinters.filter((p) => p.isActive);
-  const totalActiveCount = Math.max(activePrinters.length, btDeviceName ? 1 : 0);
 
   const checkAgentHealth = React.useCallback(async () => {
     setIsChecking(true);
@@ -86,21 +93,73 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
     }
   }, [isOpen, checkAgentHealth, refetchImpressoras]);
 
+  const handleConnectBluetooth = async (printerId: string = 'default') => {
+    setIsConnectingBt(true);
+    try {
+      toast.info('Buscando dispositivos Bluetooth próximos...');
+      const res = await connectBluetoothPrinter(printerId);
+      if (res.success) {
+        toast.success(`Impressora Bluetooth "${res.deviceName || 'KA-1445'}" conectada com sucesso!`);
+        refetchImpressoras();
+      } else {
+        toast.error('Nenhuma impressora selecionada ou conexão cancelada.');
+      }
+    } catch (err: any) {
+      toast.error('Erro ao conectar Bluetooth: ' + (err.message || err));
+    } finally {
+      setIsConnectingBt(false);
+    }
+  };
+
   const handleTestPrint = async (printer: Printer) => {
     try {
-      toast.info(`Enviando impressão de teste para ${printer.name}...`);
-      const res = await fetch('http://localhost:3001/api/print-test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ printerId: printer.id, printerName: printer.name, type: printer.type }),
-      });
-      if (res.ok) {
+      toast.info(`Enviando teste para ${printer.name}...`);
+
+      const mockOrder: PrintOrderData = {
+        id: "TESTE-001",
+        mesa: "00",
+        created_at: new Date(),
+        total: 50.00,
+        subtotal: 50.00,
+        totalWithFee: 50.00,
+        itens: [
+          { nome: `Teste - ${printer.name}`, quantidade: 1, preco: 50.00 }
+        ],
+        descricao: `Página de Teste - Estação: ${printer.type}`
+      };
+
+      // Se a impressora for Bluetooth e não estiver pareada no navegador, abre a tela de pareamento
+      if (printer.connectionType === 'bluetooth' && !isPrinterConnected(printer.id) && !isPrinterConnected('default')) {
+        toast.info(`Conectando à impressora ${printer.name}...`);
+        const connRes = await connectBluetoothPrinter(printer.id);
+        if (!connRes.success) {
+          toast.error(`Falha ao conectar à impressora Bluetooth "${printer.name}".`);
+          return;
+        }
+      }
+
+      const success = await printToDevice(mockOrder, settings.restaurantName || 'San Pio', printer);
+
+      if (success) {
         toast.success(`Teste impresso com sucesso em ${printer.name}!`);
       } else {
-        toast.warning(`Comando enviado para ${printer.name}. Verifique a impressora.`);
+        // Fallback: se o agente Node local responder, tenta via API local
+        if (isAgentConnected) {
+          const res = await fetch('http://localhost:3001/api/print-test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ printerId: printer.id, printerName: printer.name, type: printer.type }),
+          });
+          if (res.ok) {
+            toast.success(`Teste impresso via Agente Local em ${printer.name}!`);
+            return;
+          }
+        }
+        toast.error(`Erro ao imprimir em ${printer.name}. Verifique a impressora.`);
       }
-    } catch {
-      toast.info(`Solicitação enviada. Verifique se o agente local imprimiu a página de teste.`);
+    } catch (err: any) {
+      console.error('Erro no teste de impressão:', err);
+      toast.error(`Erro no teste: ${err.message || err}`);
     }
   };
 
@@ -199,30 +258,47 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
             </div>
           </div>
 
-          {/* Impressora Bluetooth Pareada no Navegador */}
-          {btDeviceName && (
-            <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-between shadow-sm">
+          {/* Impressora Bluetooth Web (Direct Connection Card) */}
+          <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 space-y-3 shadow-sm">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                   <Radio className="w-5 h-5 animate-pulse" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-foreground">{btDeviceName}</span>
-                    <Badge className="bg-emerald-500 text-white text-[9px] font-extrabold px-2">
-                      BLUETOOTH ATIVO
+                    <span className="font-bold text-sm text-foreground">
+                      {btDeviceName || 'Web Bluetooth (Navegador)'}
+                    </span>
+                    <Badge className={btDeviceName ? "bg-emerald-500 text-white text-[9px] font-extrabold px-2" : "bg-muted text-muted-foreground text-[9px] font-extrabold px-2"}>
+                      {btDeviceName ? 'BLUETOOTH ATIVO' : 'BLUETOOTH DISPONÍVEL'}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5 font-medium">
-                    Conectado e pareado diretamente no Navegador (Web Bluetooth)
+                    {btDeviceName 
+                      ? 'Conectado e pareado diretamente no Navegador (Web Bluetooth)'
+                      : 'Conecte sua impressora térmica Bluetooth (ex: KA-1445) diretamente por aqui'}
                   </p>
                 </div>
               </div>
-              <Badge variant="outline" className="text-emerald-600 dark:text-emerald-400 border-emerald-500/40 text-[10px] font-bold">
-                🟢 Pronta p/ Imprimir
-              </Badge>
             </div>
-          )}
+
+            <div className="flex items-center justify-between pt-1 border-t border-emerald-500/20">
+              <span className="text-xs text-muted-foreground font-medium">
+                {btDeviceName ? '🟢 Pronta para Imprimir' : '⚪ Impressora não pareada no navegador'}
+              </span>
+              <Button
+                variant={btDeviceName ? "outline" : "default"}
+                size="sm"
+                onClick={() => handleConnectBluetooth()}
+                disabled={isConnectingBt}
+                className="h-8 text-xs px-3 rounded-lg gap-1.5 font-bold"
+              >
+                <Bluetooth className={`w-3.5 h-3.5 ${isConnectingBt ? 'animate-spin' : ''}`} />
+                <span>{btDeviceName ? 'Reconectar / Parear Outra' : 'Conectar Bluetooth Direct'}</span>
+              </Button>
+            </div>
+          </div>
 
           {/* Lista de Impressoras Cadastradas */}
           <div className="space-y-3">
@@ -241,89 +317,131 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
                 <p className="text-xs text-muted-foreground">
                   Nenhuma impressora cadastrada ainda.
                 </p>
-                {onOpenSettings && (
+                <div className="flex justify-center gap-2 mt-2">
                   <Button
-                    variant="outline"
+                    variant="default"
                     size="sm"
-                    onClick={() => {
-                      onClose();
-                      onOpenSettings();
-                    }}
-                    className="mt-2 text-xs rounded-xl"
+                    onClick={() => handleConnectBluetooth()}
+                    disabled={isConnectingBt}
+                    className="text-xs rounded-xl gap-1.5"
                   >
-                    <Settings className="w-3.5 h-3.5 mr-1.5" />
-                    Cadastrar Impressora
+                    <Bluetooth className="w-3.5 h-3.5" />
+                    Conectar Bluetooth
                   </Button>
-                )}
+                  {onOpenSettings && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        onClose();
+                        onOpenSettings();
+                      }}
+                      className="text-xs rounded-xl"
+                    >
+                      <Settings className="w-3.5 h-3.5 mr-1.5" />
+                      Configurações
+                    </Button>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="space-y-2.5">
-                {allPrinters.map((printer) => (
-                  <div
-                    key={printer.id}
-                    className={`p-3.5 rounded-xl border transition-all ${
-                      printer.isActive
-                        ? 'border-border bg-card shadow-sm'
-                        : 'border-border/50 bg-muted/20 opacity-60'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-start gap-3">
-                        <div
-                          className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                            printer.isActive
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                              : 'bg-muted text-muted-foreground'
-                          }`}
-                        >
-                          <PrinterIcon className="w-4 h-4" />
+                {allPrinters.map((printer) => {
+                  const isBtConnected = printer.connectionType === 'bluetooth' && (isPrinterConnected(printer.id) || isPrinterConnected('default'));
+
+                  return (
+                    <div
+                      key={printer.id}
+                      className={`p-3.5 rounded-xl border transition-all ${
+                        printer.isActive
+                          ? 'border-border bg-card shadow-sm'
+                          : 'border-border/50 bg-muted/20 opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                              printer.isActive
+                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                : 'bg-muted text-muted-foreground'
+                            }`}
+                          >
+                            <PrinterIcon className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-sm text-foreground">
+                                {printer.name}
+                              </span>
+                              <Badge
+                                variant={printer.isActive ? 'default' : 'secondary'}
+                                className="text-[9px] font-bold px-1.5 py-0"
+                              >
+                                {printer.isActive ? 'ATIVA' : 'INATIVA'}
+                              </Badge>
+                              {printer.connectionType === 'bluetooth' && (
+                                <Badge 
+                                  variant="outline"
+                                  className={`text-[9px] font-bold px-1.5 py-0 ${
+                                    isBtConnected 
+                                      ? 'text-emerald-600 border-emerald-500/40 bg-emerald-500/10' 
+                                      : 'text-amber-600 border-amber-500/40 bg-amber-500/10'
+                                  }`}
+                                >
+                                  {isBtConnected ? 'PAREADA' : 'DESCONECTADA'}
+                                </Badge>
+                              )}
+                            </div>
+
+                            <p className="text-xs text-muted-foreground mt-0.5 font-medium">
+                              {getStationLabel(printer.type)}
+                            </p>
+
+                            <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
+                              <span className="font-mono">
+                                {printer.connectionType === 'tcp'
+                                  ? `TCP: ${printer.ipAddress}:${printer.port || 9100}`
+                                  : printer.connectionType === 'usb'
+                                  ? `USB/COM: ${printer.usbPath || 'COM'}`
+                                  : printer.connectionType?.toUpperCase() || 'BLUETOOTH'}
+                              </span>
+                              <span>•</span>
+                              <span className="font-semibold text-foreground">
+                                {printer.larguraBobina || '80mm'}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-sm text-foreground">
-                              {printer.name}
-                            </span>
-                            <Badge
-                              variant={printer.isActive ? 'default' : 'secondary'}
-                              className="text-[9px] font-bold px-1.5 py-0"
+
+                        <div className="flex items-center gap-1.5">
+                          {printer.connectionType === 'bluetooth' && !isBtConnected && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleConnectBluetooth(printer.id)}
+                              disabled={isConnectingBt}
+                              className="h-8 text-xs px-2 rounded-lg gap-1 border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10"
                             >
-                              {printer.isActive ? 'ATIVA' : 'INATIVA'}
-                            </Badge>
-                          </div>
-
-                          <p className="text-xs text-muted-foreground mt-0.5 font-medium">
-                            {getStationLabel(printer.type)}
-                          </p>
-
-                          <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
-                            <span className="font-mono">
-                              {printer.connectionType === 'tcp'
-                                ? `TCP: ${printer.ipAddress}:${printer.port || 9100}`
-                                : printer.connectionType === 'usb'
-                                ? `USB/COM: ${printer.usbPath || 'COM'}`
-                                : printer.connectionType?.toUpperCase() || 'BLUETOOTH/LOCAL'}
-                            </span>
-                            <span>•</span>
-                            <span className="font-semibold text-foreground">
-                              {printer.larguraBobina || '80mm'}
-                            </span>
-                          </div>
+                              <Bluetooth className="w-3 h-3" />
+                              Conectar
+                            </Button>
+                          )}
+                          {printer.isActive && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleTestPrint(printer)}
+                              className="h-8 text-xs px-2.5 rounded-lg hover:bg-primary hover:text-primary-foreground transition-all font-semibold"
+                            >
+                              Testar
+                            </Button>
+                          )}
                         </div>
                       </div>
-
-                      {printer.isActive && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleTestPrint(printer)}
-                          className="h-8 text-xs px-2.5 rounded-lg hover:bg-primary hover:text-primary-foreground transition-all"
-                        >
-                          Testar
-                        </Button>
-                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -362,3 +480,4 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
 };
 
 export default PrinterStatusModal;
+
