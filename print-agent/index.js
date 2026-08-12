@@ -659,48 +659,26 @@ async function handleNewOrder(pedido) {
   // Limpa sufixos de impressora como "(KA-1445)" ou "PRODUCAO:" da observação do pedido
   const cleanPedidoDesc = cleanObsText(pedido.descricao || '');
 
-  // Desmembrar quantidade > 1 para que cada unidade física gere seu próprio cupom individual com corte
-  const unrolledItens = [];
-  for (let i = 0; i < itens.length; i++) {
-    const item = itens[i];
-    const qty = parseInt(item.quantidade || item.quantity || 1, 10) || 1;
-    const unitPrice = item.preco || item.price || 0;
-    const itemObs = item.descricao || (itens.length === 1 ? cleanPedidoDesc : (i === 0 && cleanPedidoDesc ? cleanPedidoDesc : ''));
+  // Para pedidos de produção, IMPRIME OBRIGATORIAMENTE 1 CUPOM INDIVIDUAL SEPARADO PARA CADA PRODUTO
+  const hasAllPrinter = activePrinters.some(p => p.tipo === 'all' && p.ativo === true);
 
-    // Para cada unidade física, insere 1 item na lista de impressão individual
-    for (let q = 0; q < qty; q++) {
-      unrolledItens.push({
-        ...item,
-        quantidade: 1,
-        preco: unitPrice,
-        descricao: itemObs
-      });
+  if (hasAllPrinter) {
+    for (let idx = 0; idx < itens.length; idx++) {
+      const item = itens[idx];
+      const itemObs = item.descricao || item.description || cleanPedidoDesc;
+      enqueuePrintTask('all', { ...pedido, descricao: cleanPedidoDesc }, [{ ...item, descricao: itemObs }]);
     }
+    return; // Se impresso na estação geral 'all', finaliza para evitar duplicidade
   }
 
-  const hasAllPrinter = activePrinters.some(p => p.tipo === 'all' && p.ativo === true);
-  
-  if (hasAllPrinter) {
-    // Se houver impressora "Imprimir Tudo" (Caixa), envia cada produto em seu próprio cupom individual com corte
-    for (let idx = 0; idx < unrolledItens.length; idx++) {
-      enqueuePrintTask('all', { ...pedido, descricao: cleanPedidoDesc }, [unrolledItens[idx]]);
-    }
-  } else {
-    // Direcionar especificamente para as estações individuais (Cozinha / Bar) em cupons separados
-    const kitchenItems = unrolledItens.filter(i => getItemStation(i.nome || i.productName, i.productId || i.id) === 'kitchen');
-    const barItems = unrolledItens.filter(i => getItemStation(i.nome || i.productName, i.productId || i.id) === 'bar');
+  // Caso contrário, direcionar especificamente item por item para as estações individuais (Cozinha / Bar)
+  for (let idx = 0; idx < itens.length; idx++) {
+    const item = itens[idx];
+    const station = getItemStation(item.nome || item.productName, item.productId || item.id);
+    const itemObs = item.descricao || item.description || cleanPedidoDesc;
 
-    if (kitchenItems.length > 0) {
-      for (let idx = 0; idx < kitchenItems.length; idx++) {
-        enqueuePrintTask('kitchen', { ...pedido, descricao: cleanPedidoDesc }, [kitchenItems[idx]]);
-      }
-    }
-
-    if (barItems.length > 0) {
-      for (let idx = 0; idx < barItems.length; idx++) {
-        enqueuePrintTask('bar', { ...pedido, descricao: cleanPedidoDesc }, [barItems[idx]]);
-      }
-    }
+    // Enfileira cada produto em seu próprio cupom individual com corte de papel
+    enqueuePrintTask(station, { ...pedido, descricao: cleanPedidoDesc }, [{ ...item, descricao: itemObs }]);
   }
 }
 
