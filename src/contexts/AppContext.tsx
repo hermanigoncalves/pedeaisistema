@@ -244,8 +244,7 @@ const getInitialPrinters = (): Printer[] => {
   try {
     const saved = localStorage.getItem('pedeai_printers');
     if (saved) {
-      // Começa com todas inativas fisicamente ao atualizar/recarregar a página
-      return JSON.parse(saved).map((p: any) => ({ ...p, isActive: false }));
+      return JSON.parse(saved).map((p: any) => ({ ...p, isActive: p.isActive !== false }));
     }
   } catch (e) {
     console.error('Erro ao inicializar impressoras do LocalStorage:', e);

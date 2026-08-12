@@ -36,34 +36,32 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
   const [isChecking, setIsChecking] = useState(false);
 
   const btDeviceName = getConnectedDeviceName();
-  const localPrinters = settings.printers?.filter((p: any) => p.isActive || p.enabled) || [];
-  const activePrinters = dbPrinters.filter((p) => p.isActive);
-  const totalActiveCount = Math.max(activePrinters.length, localPrinters.length, btDeviceName ? 1 : 0);
+  const allPrinters = React.useMemo(() => {
+    const combined: Printer[] = [...dbPrinters];
+    const dbIds = new Set(dbPrinters.map(p => p.id));
+    const dbNames = new Set(dbPrinters.map(p => p.name.trim().toLowerCase()));
 
-  const checkAgentHealth = async () => {
-    setIsChecking(true);
-    try {
-      const res = await fetch('http://localhost:3001/api/printers', { signal: AbortSignal.timeout(3000) });
-      if (res.ok) {
-        setIsAgentConnected(true);
-      } else {
-        setIsAgentConnected(false);
+    (settings.printers || []).forEach((p: any) => {
+      const pNameLower = (p.name || '').trim().toLowerCase();
+      if (!dbIds.has(p.id) && !dbNames.has(pNameLower)) {
+        combined.push({
+          id: p.id || `local-${pNameLower}`,
+          name: p.name || 'Impressora Local',
+          type: p.type || 'receipt',
+          connectionType: p.connectionType || 'bluetooth',
+          ipAddress: p.ipAddress || '',
+          port: p.port || 9100,
+          usbPath: p.usbPath || '',
+          isActive: p.isActive ?? true,
+          larguraBobina: p.larguraBobina || '80mm'
+        });
       }
-    } catch {
-      setIsAgentConnected(false);
-    } finally {
-      setIsChecking(false);
-    }
-  };
+    });
+    return combined;
+  }, [dbPrinters, settings.printers]);
 
-  useEffect(() => {
-    if (isOpen) {
-      checkAgentHealth();
-      refetchImpressoras();
-    }
-  }, [isOpen, refetchImpressoras]);
-
-  const activePrinters = dbPrinters.filter((p) => p.isActive);
+  const activePrinters = allPrinters.filter((p) => p.isActive);
+  const totalActiveCount = Math.max(activePrinters.length, btDeviceName ? 1 : 0);
 
   const handleTestPrint = async (printer: Printer) => {
     try {
@@ -224,22 +222,22 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
             </div>
           )}
 
-          {/* Lista de Impressoras Cadastradas no Banco de Dados */}
+          {/* Lista de Impressoras Cadastradas */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Impressoras no Banco de Dados ({activePrinters.length} Ativas)
+                Impressoras Cadastradas ({activePrinters.length} Ativas)
               </h4>
               <Badge variant="secondary" className="text-[10px] font-semibold">
-                {dbPrinters.length} Total
+                {allPrinters.length} Total
               </Badge>
             </div>
 
-            {dbPrinters.length === 0 && !btDeviceName && localPrinters.length === 0 ? (
+            {allPrinters.length === 0 && !btDeviceName ? (
               <div className="p-6 text-center border border-dashed border-border rounded-xl space-y-2">
                 <PrinterIcon className="w-8 h-8 text-muted-foreground mx-auto opacity-40" />
                 <p className="text-xs text-muted-foreground">
-                  Nenhuma impressora cadastrada no banco de dados do restaurante.
+                  Nenhuma impressora cadastrada ainda.
                 </p>
                 {onOpenSettings && (
                   <Button
@@ -252,32 +250,13 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
                     className="mt-2 text-xs rounded-xl"
                   >
                     <Settings className="w-3.5 h-3.5 mr-1.5" />
-                    Cadastrar Impressora no Banco
-                  </Button>
-                )}
-              </div>
-            ) : dbPrinters.length === 0 ? (
-              <div className="p-3 text-center border border-border/60 bg-muted/20 rounded-xl">
-                <p className="text-xs text-muted-foreground">
-                  Você já tem impressora conectada localmente/Bluetooth. Para sincronizá-la com o robô de impressão na nuvem, cadastre-a em <strong>Configurações > Impressoras</strong>.
-                </p>
-                {onOpenSettings && (
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => {
-                      onClose();
-                      onOpenSettings();
-                    }}
-                    className="mt-1 text-xs text-primary h-auto p-0 font-bold"
-                  >
-                    + Cadastrar no Banco de Dados do Restaurante
+                    Cadastrar Impressora
                   </Button>
                 )}
               </div>
             ) : (
               <div className="space-y-2.5">
-                {dbPrinters.map((printer) => (
+                {allPrinters.map((printer) => (
                   <div
                     key={printer.id}
                     className={`p-3.5 rounded-xl border transition-all ${
@@ -320,7 +299,7 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
                                 ? `TCP: ${printer.ipAddress}:${printer.port || 9100}`
                                 : printer.connectionType === 'usb'
                                 ? `USB/COM: ${printer.usbPath || 'COM'}`
-                                : printer.connectionType?.toUpperCase() || 'REDES'}
+                                : printer.connectionType?.toUpperCase() || 'BLUETOOTH/LOCAL'}
                             </span>
                             <span>•</span>
                             <span className="font-semibold text-foreground">
