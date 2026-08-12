@@ -1158,7 +1158,42 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                 {/* Formulário para adicionar nova impressora */}
                 {showAddPrinterForm && (
                   <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-3">
-                    <h4 className="font-semibold text-foreground text-xs uppercase tracking-wider">Nova Impressora</h4>
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold text-foreground text-xs uppercase tracking-wider">Nova Impressora</h4>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-muted-foreground font-medium">Preencher rápido:</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setNewPrinterName('Epson TM-T20 (USB)');
+                            setNewPrinterConnection('browser');
+                            setNewPrinterWidth('80mm');
+                            setNewPrinterEstacoes(['kitchen', 'bar', 'receipt']);
+                          }}
+                          className="h-6 text-[10px] px-2 rounded-md bg-background hover:bg-primary/10 border-primary/30"
+                        >
+                          🖨️ Epson TM-T20 (USB)
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setNewPrinterName('Epson TM-T20 (Rede)');
+                            setNewPrinterConnection('tcp');
+                            setNewPrinterIp('192.168.1.169');
+                            setNewPrinterPort('9100');
+                            setNewPrinterWidth('80mm');
+                            setNewPrinterEstacoes(['kitchen', 'bar', 'receipt']);
+                          }}
+                          className="h-6 text-[10px] px-2 rounded-md bg-background hover:bg-primary/10 border-primary/30"
+                        >
+                          🔌 Epson TM-T20 (Rede IP)
+                        </Button>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div className="space-y-1">
                         <Label className="text-xs">Nome da Impressora</Label>

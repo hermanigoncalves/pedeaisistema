@@ -145,10 +145,15 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
       } else {
         // Fallback: se o agente Node local responder, tenta via API local
         if (isAgentConnected) {
-          const res = await fetch('http://localhost:3001/api/print-test', {
+          const res = await fetch('http://localhost:3001/api/test-print', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ printerId: printer.id, printerName: printer.name, type: printer.type }),
+            body: JSON.stringify({
+              type: printer.connectionType || 'tcp',
+              host: printer.ipAddress || '192.168.1.169',
+              port: printer.port || 9100,
+              station: printer.type || 'kitchen'
+            }),
           });
           if (res.ok) {
             toast.success(`Teste impresso via Agente Local em ${printer.name}!`);

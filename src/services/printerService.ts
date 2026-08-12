@@ -715,19 +715,60 @@ export const printViaBrowser = (
 
     return true;
   } catch (err) {
-    console.error('[PrinterService] Erro ao imprimir via navegador:', err);
-    return false;
+      return false;
   }
 };
 
 /**
+ * Trata envio para Impressoras de Rede (TCP/IP) ou USB:
+ * Tenta primeiro via Agente Local (Node.js na porta 3001), e faz fallback
+ * para o diálogo nativo do navegador caso o agente local não responda.
+ */
+const printViaTcpOrUsb = async (
+  pedido: PrintOrderData, 
+  restaurantName: string, 
+  printer: { ipAddress?: string; port?: number; usbPath?: string; connectionType?: string; type?: string; name?: string; larguraBobina?: '58mm' | '80mm' }
+): Promise<boolean> => {
+  try {
+    const res = await fetch('http://localhost:3001/api/test-print', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: printer.connectionType || 'tcp',
+        host: printer.ipAddress || '192.168.1.169',
+        port: printer.port || 9100,
+        usb: printer.usbPath || '',
+        station: printer.type || 'kitchen',
+        pedido
+      }),
+      signal: AbortSignal.timeout(3000)
+    });
+    if (res.ok) return true;
+  } catch {
+    // Agente local Node.js indisponível na porta 3001
+  }
+
+  // Se o agente local Node.js não responder (ex: acessando via tablet/celular/navegador sem o agente rodando no mesmo PC), usa o diálogo nativo de impressão como fallback
+  return printViaBrowser(pedido, restaurantName, printer);
+};
+
+/**
  * Função roteadora universal de impressão para qualquer canal configurado
- * (Bluetooth, RawBT App, RawBT Deep Link ou Impressora do PC/Sistema)
+ * (Bluetooth, RawBT App, RawBT Deep Link, Rede TCP, USB ou Impressora do PC/Sistema)
  */
 export const printToDevice = async (
   pedido: PrintOrderData,
   restaurantName: string,
-  printer: { id: string; connectionType?: 'bluetooth' | 'rawbt' | 'deeplink' | 'browser'; larguraBobina?: '58mm' | '80mm' }
+  printer: { 
+    id: string; 
+    name?: string;
+    connectionType?: 'bluetooth' | 'rawbt' | 'deeplink' | 'browser' | 'tcp' | 'usb'; 
+    ipAddress?: string;
+    port?: number;
+    usbPath?: string;
+    larguraBobina?: '58mm' | '80mm';
+    type?: string;
+  }
 ): Promise<boolean> => {
   const type = printer.connectionType || 'bluetooth';
   const isConta = pedido.descricao === 'Fechamento de Conta' || pedido.descricao === 'Simulação de Conta' || (pedido.descricao?.includes('Conta') && !pedido.id.toString().startsWith('AutoF'));
@@ -756,6 +797,8 @@ export const printToDevice = async (
         success = printViaDeepLink(textContent);
       } else if (type === 'browser') {
         success = printViaBrowser(singleItemOrder, restaurantName, printer);
+      } else if (type === 'tcp' || type === 'usb') {
+        success = await printViaTcpOrUsb(singleItemOrder, restaurantName, printer);
       }
 
       if (!success) allSuccess = false;
@@ -787,6 +830,9 @@ export const printToDevice = async (
     return printViaBrowser(pedido, restaurantName, printer);
   }
 
+  if (type === 'tcp' || type === 'usb') {
+    return printViaTcpOrUsb(pedido, restaurantName, printer);
+  }
+
   return false;
 };
-
