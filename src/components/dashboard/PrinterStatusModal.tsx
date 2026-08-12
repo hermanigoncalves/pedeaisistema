@@ -63,6 +63,29 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
   const activePrinters = allPrinters.filter((p) => p.isActive);
   const totalActiveCount = Math.max(activePrinters.length, btDeviceName ? 1 : 0);
 
+  const checkAgentHealth = React.useCallback(async () => {
+    setIsChecking(true);
+    try {
+      const res = await fetch('http://localhost:3001/api/printers', { signal: AbortSignal.timeout(3000) });
+      if (res.ok) {
+        setIsAgentConnected(true);
+      } else {
+        setIsAgentConnected(false);
+      }
+    } catch {
+      setIsAgentConnected(false);
+    } finally {
+      setIsChecking(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      checkAgentHealth();
+      refetchImpressoras();
+    }
+  }, [isOpen, checkAgentHealth, refetchImpressoras]);
+
   const handleTestPrint = async (printer: Printer) => {
     try {
       toast.info(`Enviando impressão de teste para ${printer.name}...`);
