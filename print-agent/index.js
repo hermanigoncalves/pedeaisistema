@@ -227,17 +227,36 @@ async function loadPrintersFromDb() {
 }
 
 /**
+ * Remove acentos e limpa sufixos/marcas de impressora (PRODUCAO, KA-1445, etc)
+ */
+function cleanObsText(str) {
+  if (!str) return '';
+  return stripAccents(str)
+    .replace(/PRODUCAO:?\s*[^\n]*/gi, '')
+    .replace(/PRODUCAO:?/gi, '')
+    .replace(/PRODUCAO/gi, '')
+    .replace(/KA-\d+/gi, '')
+    .replace(/\(\s*\)/g, '')
+    .trim();
+}
+
+/**
  * Cria instâncias de ThermalPrinter para todas as impressoras que atendem à estação.
  * Suporta múltiplos destinos separados por vírgula no banco (ex: 'bar,receipt').
  * @param {'kitchen'|'bar'|'receipt'|'all'} station
  */
 function createPrintersList(station) {
   // 1. Prioridade: Buscar impressoras ativas cadastradas que atendem a esta estação
-  const matchedDbPrinters = activePrinters.filter(p => {
+  let matchedDbPrinters = activePrinters.filter(p => {
     if (!p.ativo) return false;
     const tipos = p.tipo.split(',').map(t => t.trim().toLowerCase());
     return tipos.includes(station) || tipos.includes('all');
   });
+
+  // Fallback: se não encontrou impressora com a tag específica, mas há impressoras ativas, envia para as impressoras ativas disponíveis
+  if (matchedDbPrinters.length === 0 && activePrinters.length > 0) {
+    matchedDbPrinters = activePrinters.filter(p => p.ativo);
+  }
 
   if (matchedDbPrinters.length > 0) {
     return matchedDbPrinters.map(dbPrinter => {
@@ -262,12 +281,6 @@ function createPrintersList(station) {
         })
       };
     }).filter(Boolean);
-  }
-
-  // Se houver qualquer impressora cadastrada no banco para este restaurante,
-  // mas nenhuma atendeu a esta estação, desativamos o fallback para respeitar o painel!
-  if (activePrinters.length > 0) {
-    return [];
   }
 
   // 2. Fallback: Configurações locais legadas do .env (lidas dinamicamente)
@@ -320,6 +333,7 @@ function createPrintersList(station) {
  * Remove acentos para compatibilidade com impressoras mais antigas.
  */
 function stripAccents(str) {
+  if (!str) return '';
   return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
@@ -370,10 +384,7 @@ async function printCupom(station, pedido, itens, isBill = false, divisoes = und
       let obs = item.descricao || item.description || (itens.length === 1 && pedido.descricao && !isBill ? pedido.descricao : '');
 
       if (obs) {
-        obs = stripAccents(obs)
-          .replace(/\s*\([^)]*KA-[^)]*\)/gi, '')
-          .replace(/\s*PRODUÇÃO:?\s*[^\n]*/gi, '')
-          .trim();
+        obs = cleanObsText(obs);
       }
 
       if (isBill) {
@@ -415,10 +426,7 @@ async function printCupom(station, pedido, itens, isBill = false, divisoes = und
       }
     }
 
-    const cleanGeneralObs = (pedido.descricao || '')
-      .replace(/\s*\([^)]*KA-[^)]*\)/gi, '')
-      .replace(/\s*PRODUÇÃO:?\s*[^\n]*/gi, '')
-      .trim();
+    const cleanGeneralObs = cleanObsText(pedido.descricao || '');
 
     const isSingleItemObsPrinted = itens.length === 1 && !isBill;
     if (cleanGeneralObs && !isBill && cleanGeneralObs !== 'Fechamento de Conta' && !isSingleItemObsPrinted) {
@@ -481,7 +489,7 @@ function parseItens(pedido) {
 
 // ─── Classificação dos itens por estação ──────────────────────────────────────
 
-const KITCHEN_KEYWORDS = ['pizza', 'massa', 'macarrao', 'prato', 'sopa', 'salada', 'carne', 'frango', 'peixe', 'burger', 'lanche', 'entrada'];
+const KITCHEN_KEYWORDS = ['pizza', 'massa', 'macarrao', 'prato', 'sopa', 'salada', 'carne', 'frango', 'peixe', 'burger', 'lanche', 'entrada', 'carbonara'];
 const BAR_KEYWORDS = ['cerveja', 'chopp', 'drink', 'cocktail', 'agua', 'suco', 'refrigerante', 'vinho', 'whisky', 'vodka', 'caipirinha', 'dose'];
 
 /**
@@ -531,11 +539,8 @@ async function handleNewOrder(pedido) {
     return;
   }
 
-  // Limpa sufixos de impressora como "(KA-1445)" ou "PRODUÇÃO:" da observação do pedido
-  const cleanPedidoDesc = (pedido.descricao || '')
-    .replace(/\s*\([^)]*KA-[^)]*\)/gi, '')
-    .replace(/\s*PRODUÇÃO:?\s*[^\n]*/gi, '')
-    .trim();
+  // Limpa sufixos de impressora como "(KA-1445)" ou "PRODUCAO:" da observação do pedido
+  const cleanPedidoDesc = cleanObsText(pedido.descricao || '');
 
   // Para pedidos de produção, IMPRIME 1 CUPOM SEPARADO PARA CADA PRODUTO COM CORTE DE PAPEL
   const hasAllPrinter = activePrinters.some(p => p.tipo === 'all' && p.ativo === true);
