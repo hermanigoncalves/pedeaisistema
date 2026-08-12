@@ -11,6 +11,8 @@ import { registerSystemRoutes } from './controllers/systemController';
 import { registerChatRoutes } from './controllers/chatController';
 import { registerAuthRoutes } from './controllers/authController';
 
+import { startCloudPrintService, getPendingCloudJobs, completeCloudJob } from './services/cloudPrintService';
+
 const app = Fastify({ logger: true });
 
 // Rotas públicas que NÃO passam pela validação de secret
@@ -22,6 +24,7 @@ const PUBLIC_PATHS = new Set([
   '/api/auth/login',
   '/api/auth/admin-login',
   '/api/auth/verify-password',
+  '/api/cloudprint',
 ]);
 
 async function main() {
@@ -38,7 +41,7 @@ async function main() {
     if (!secret) return; // Secret não configurado — sem validação (modo dev)
 
     const path = request.url.split('?')[0];
-    if (PUBLIC_PATHS.has(path)) return; // Endpoint público, não valida
+    if (PUBLIC_PATHS.has(path) || path.startsWith('/api/cloudprint')) return; // Endpoint público, não valida
 
     const provided = request.headers['x-webhook-secret'];
     if (provided !== secret) {
@@ -54,6 +57,19 @@ async function main() {
     version: '1.0.0',
   }));
 
+  // Endpoints Multi-Tenant de Impressão na Nuvem (CloudPRNT / Polling)
+  app.get('/api/cloudprint/:restauranteId/jobs', async (request, reply) => {
+    const { restauranteId } = request.params as { restauranteId: string };
+    const jobs = getPendingCloudJobs(restauranteId);
+    return { success: true, restauranteId, count: jobs.length, jobs };
+  });
+
+  app.post('/api/cloudprint/:restauranteId/jobs/:jobId/complete', async (request, reply) => {
+    const { restauranteId, jobId } = request.params as { restauranteId: string; jobId: string };
+    const success = completeCloudJob(restauranteId, jobId);
+    return { success };
+  });
+
   // Registra rotas
   registerWebhookRoutes(app);
   registerFirstMessageRoutes(app);
@@ -62,8 +78,9 @@ async function main() {
   registerChatRoutes(app);
   registerAuthRoutes(app);
 
-  // Inicia cron de estoque
+  // Inicia cron de estoque e serviço de impressão na nuvem
   startStockAlertCron();
+  startCloudPrintService();
 
   // Start
   await app.listen({ port: config.PORT, host: '0.0.0.0' });
