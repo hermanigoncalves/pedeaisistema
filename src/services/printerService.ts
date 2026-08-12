@@ -40,6 +40,8 @@ export const knownBluetoothDevices: Record<string, any> = {};
 
 // Mantido para compatibilidade de simulação
 let isPrinting = false;
+let printQueueChain: Promise<any> = Promise.resolve();
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
  * Retorna o nome do primeiro dispositivo Bluetooth conectado (compatibilidade legada)
@@ -439,31 +441,27 @@ export const printViaWebBluetooth = async (
     return false;
   }
 
-  if (isPrinting) {
-    console.log('[PrinterService] Impressão em curso na fila. Aguardando...');
-  }
-
-  isPrinting = true;
-
-  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-  try {
-    const data = generateEscPosData(pedido, restaurantName, larguraBobina);
-    const CHUNK_SIZE = 200; // Chunk de bytes para evitar saturação do buffer bluetooth
-    for (let i = 0; i < data.length; i += CHUNK_SIZE) {
-      const chunk = data.slice(i, i + CHUNK_SIZE);
-      await conn.characteristic.writeValue(chunk);
-      await sleep(50);
-    }
-    return true;
-  } catch (error) {
-    console.error(`Erro ao escrever na impressora #${printerId}:`, error);
-    // Remove a conexão se estiver corrompida
-    delete activeBluetoothConnections[printerId];
-    return false;
-  } finally {
-    isPrinting = false;
-  }
+  // Garantir execução sequencial atômica da fila de impressão (Mutex Lock)
+  return new Promise<boolean>((resolve) => {
+    printQueueChain = printQueueChain.then(async () => {
+      try {
+        const data = generateEscPosData(pedido, restaurantName, larguraBobina);
+        const CHUNK_SIZE = 128; // Reduzido de 200 para 128 bytes para evitar estouro de buffer Bluetooth
+        for (let i = 0; i < data.length; i += CHUNK_SIZE) {
+          const chunk = data.slice(i, i + CHUNK_SIZE);
+          await conn.characteristic.writeValue(chunk);
+          await sleep(60);
+        }
+        // Delay térmico entre cupons para o corte e avanço do papel
+        await sleep(300);
+        resolve(true);
+      } catch (error) {
+        console.error(`Erro ao escrever na impressora #${printerId}:`, error);
+        delete activeBluetoothConnections[printerId];
+        resolve(false);
+      }
+    });
+  });
 };
 
 /**

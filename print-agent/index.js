@@ -502,115 +502,137 @@ setInterval(() => {
 // Carregar fila existente ao iniciar a aplicação
 loadPrintQueue();
 
+let agentPrintMutexChain = Promise.resolve();
+
 /**
  * Executa fisicamente a impressão do cupom de uma tarefa da fila.
  * Retorna true se a impressão foi bem-sucedida, false se falhou.
  */
 async function executeSinglePrintTask(task) {
-  const { station, pedido, itens, isBill, divisoes } = task;
-  const printers = createPrintersList(station);
+  return new Promise((resolve) => {
+    agentPrintMutexChain = agentPrintMutexChain.then(async () => {
+      try {
+        const { station, pedido, itens, isBill, divisoes } = task;
+        const printers = createPrintersList(station);
 
-  if (printers.length === 0) {
-    console.log(`[PrintAgent] Nenhuma impressora ativa para a estacao [${station.toUpperCase()}] — aguardando conexao.`);
-    return false;
-  }
+        if (printers.length === 0) {
+          console.log(`[PrintAgent] Nenhuma impressora ativa para a estacao [${station.toUpperCase()}] — aguardando conexao.`);
+          resolve(false);
+          return;
+        }
 
-  let allSuccess = true;
+        let allSuccess = true;
 
-  for (const { name, printer } of printers) {
-    const dataStr = new Date().toLocaleString('pt-BR');
-    const stationNameMap = {
-      kitchen: 'COZINHA',
-      bar: 'BAR',
-      receipt: 'RECIBO',
-      all: 'GERAL'
-    };
-    const stationTitle = stationNameMap[station] || station.toUpperCase();
+        for (const { name, printer } of printers) {
+          const dataStr = new Date().toLocaleString('pt-BR');
+          const stationNameMap = {
+            kitchen: 'COZINHA',
+            bar: 'BAR',
+            receipt: 'RECIBO',
+            all: 'GERAL'
+          };
+          const stationTitle = stationNameMap[station] || station.toUpperCase();
 
-    const mesaLabel = isBill
-      ? `CONTA — MESA ${pedido.mesa}`
-      : `MESA ${pedido.mesa} — [ ${stationTitle} ]`;
+          const mesaLabel = isBill
+            ? `CONTA — MESA ${pedido.mesa}`
+            : `MESA ${pedido.mesa} — [ ${stationTitle} ]`;
 
-    printer.alignCenter();
-    printer.bold(true);
-    printer.println(stripAccents(restauranteNome.toUpperCase()));
-    printer.bold(false);
-    printer.println(dataStr);
-    printer.drawLine();
+          printer.alignCenter();
+          printer.bold(true);
+          printer.println(stripAccents(restauranteNome.toUpperCase()));
+          printer.bold(false);
+          printer.println(dataStr);
+          printer.drawLine();
 
-    printer.alignLeft();
-    printer.bold(true);
-    printer.println(stripAccents(mesaLabel));
-    printer.bold(false);
+          printer.alignLeft();
+          printer.bold(true);
+          printer.println(stripAccents(mesaLabel));
+          if (pedido.id && !isBill) {
+            printer.println(`Pedido #${pedido.id}`);
+          }
+          printer.bold(false);
 
-    if (pedido.usuario_nome) {
-      printer.println(stripAccents(`Cliente: ${pedido.usuario_nome}`));
-    }
+          if (pedido.usuario_nome) {
+            printer.println(stripAccents(`Cliente: ${pedido.usuario_nome}`));
+          }
 
-    printer.drawLine();
+          printer.drawLine();
 
-    // Itens
-    for (const item of itens) {
-      const qty = item.quantidade || item.quantity || 1;
-      const nome = stripAccents(item.nome || item.productName || '?');
-      const preco = (item.preco || item.price || 0).toFixed(2);
-      let obs = cleanObsText(item.descricao || item.description || '');
+          // Cabeçalho de Itens
+          printer.bold(true);
+          printer.println('ITENS:');
+          printer.bold(false);
 
-      if (isBill) {
-        printer.leftRight(`${qty}x ${nome}`, `R$${preco}`);
-      } else {
-        printer.println(`${qty}x ${nome}`);
+          // Itens
+          for (const item of itens) {
+            const qty = item.quantidade || item.quantity || 1;
+            const nome = stripAccents(item.nome || item.productName || '?');
+            const preco = (item.preco || item.price || 0).toFixed(2);
+            let obs = cleanObsText(item.descricao || item.description || '');
+
+            if (isBill) {
+              printer.leftRight(`${qty}x ${nome}`, `R$${preco}`);
+            } else {
+              printer.println(`${qty}x ${nome}`);
+            }
+
+            if (obs && obs !== 'Fechamento de Conta') {
+              printer.println(`  (${obs})`);
+            }
+          }
+
+          // Totais (apenas no recibo/conta)
+          if (isBill) {
+            const subtotal = itens.reduce((s, i) => s + (i.preco || i.price || 0) * (i.quantidade || i.quantity || 1), 0);
+            const feeRate = serviceFee;
+            const fee = (subtotal * feeRate) / 100;
+            const total = subtotal + fee;
+
+            printer.drawLine();
+            if (feeRate > 0) {
+              printer.leftRight('Subtotal:', `R$${subtotal.toFixed(2)}`);
+              printer.leftRight(`Servico (${feeRate}%):`, `R$${fee.toFixed(2)}`);
+            }
+            printer.bold(true);
+            printer.leftRight('TOTAL:', `R$${total.toFixed(2)}`);
+            printer.bold(false);
+
+            if (divisoes && divisoes > 1) {
+              const valorDividido = total / divisoes;
+              printer.drawLine();
+              printer.alignCenter();
+              printer.bold(true);
+              printer.println(`Dividido por ${divisoes}:`);
+              printer.println(`R$ ${valorDividido.toFixed(2)} por pessoa`);
+              printer.bold(false);
+              printer.alignLeft();
+            }
+          }
+
+          printer.drawLine();
+          printer.alignCenter();
+          printer.println('Obrigado pela preferenca!');
+          printer.println('Sistema PedeAi');
+          printer.cut();
+
+          try {
+            await printer.execute();
+            console.log(`[PrintAgent] ✅ Impresso em "${name}" (${station}) — ${mesaLabel}`);
+          } catch (err) {
+            console.error(`[PrintAgent] ❌ Erro ao imprimir em "${name}" (${station}):`, err.message);
+            allSuccess = false;
+          }
+        }
+
+        // Aguarda 300ms entre cupons térmicos para evitar sobreposição física
+        await new Promise(r => setTimeout(r, 300));
+        resolve(allSuccess);
+      } catch (err) {
+        console.error('[PrintAgent] Erro na execucao da tarefa:', err);
+        resolve(false);
       }
-
-      if (obs) {
-        printer.println(`  (${obs})`);
-      }
-    }
-
-    // Totais (apenas no recibo/conta)
-    if (isBill) {
-      const subtotal = itens.reduce((s, i) => s + (i.preco || i.price || 0) * (i.quantidade || i.quantity || 1), 0);
-      const feeRate = serviceFee;
-      const fee = (subtotal * feeRate) / 100;
-      const total = subtotal + fee;
-
-      printer.drawLine();
-      if (feeRate > 0) {
-        printer.leftRight('Subtotal:', `R$${subtotal.toFixed(2)}`);
-        printer.leftRight(`Servico (${feeRate}%):`, `R$${fee.toFixed(2)}`);
-      }
-      printer.bold(true);
-      printer.leftRight('TOTAL:', `R$${total.toFixed(2)}`);
-      printer.bold(false);
-
-      if (divisoes && divisoes > 1) {
-        const valorDividido = total / divisoes;
-        printer.drawLine();
-        printer.alignCenter();
-        printer.bold(true);
-        printer.println(`Dividido por ${divisoes}:`);
-        printer.println(`R$ ${valorDividido.toFixed(2)} por pessoa`);
-        printer.bold(false);
-        printer.alignLeft();
-      }
-    }
-
-    printer.drawLine();
-    printer.alignCenter();
-    printer.println('Obrigado pela preferenca!');
-    printer.println('Sistema PedeAi');
-    printer.cut();
-
-    try {
-      await printer.execute();
-      console.log(`[PrintAgent] ✅ Impresso em "${name}" (${station}) — ${mesaLabel}`);
-    } catch (err) {
-      console.error(`[PrintAgent] ❌ Erro ao imprimir em "${name}" (${station}):`, err.message);
-      allSuccess = false;
-    }
-  }
-
-  return allSuccess;
+    });
+  });
 }
 
 // ─── Parser de itens vindo do Banco de Dados (Suporta JSON e Legado) ─────────
