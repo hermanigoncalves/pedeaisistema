@@ -118,7 +118,6 @@ export const PrinterSimulator: React.FC<PrinterSimulatorProps> = ({
                                 <div className="mb-4 italic">OBS: {data.descricao}</div>
                             )}
                             <div>Obrigado pela preferência!</div>
-                            <div>Sistema PedeAi</div>
                         </div>
 
                         {/* Cut Line */}

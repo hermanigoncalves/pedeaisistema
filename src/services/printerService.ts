@@ -223,16 +223,15 @@ const generateEscPosData = (
   pedido.itens.forEach(item => {
     const nome = removeAccents(item.nome);
     const qtd = item.quantidade;
-
-    // Calcula o valor total deste item (qtd * preco unitario)
     const totalItem = item.preco * qtd;
 
     // Linha 1: Qtd x Nome
     add(`${qtd}x ${nome}\n`);
 
-    // Descrição do item (se houver) - indentado
-    if (item.descricao) {
-      add(`   (${removeAccents(item.descricao)})\n`);
+    // Descrição/Observação do item (se houver no item ou no pedido único) - exibido logo abaixo do produto
+    const itemObs = item.descricao || (pedido.itens.length === 1 && pedido.descricao && !isConta ? pedido.descricao : '');
+    if (itemObs) {
+      add(`   (${removeAccents(itemObs)})\n`);
     }
 
     // Renderiza preços apenas se for Fechamento de Conta / Simulação
@@ -240,14 +239,13 @@ const generateEscPosData = (
       const unitPriceStr = item.preco.toFixed(2).replace('.', ',');
       const totalPriceStr = totalItem.toFixed(2).replace('.', ',');
 
-      // Show price detail on its own line for better readability
       if (qtd > 1) {
         add(`   Preco: ${unitPriceStr} | Sub: ${totalPriceStr}\n\n`);
       } else {
         add(`   Subtotal: R$ ${totalPriceStr}\n\n`);
       }
     } else {
-      add('\n'); // Mantém espaçamento entre itens sem mostrar os preços
+      add('\n');
     }
   });
 
@@ -340,16 +338,16 @@ const generateEscPosData = (
     }
   }
 
-  // Observações Gerais
-  if (pedido.descricao && pedido.descricao !== 'Fechamento de Conta') {
+  // Observações Gerais (imprime se for pedido com múltiplos itens e não tiver sido impresso no item único)
+  const isSingleItemObsPrinted = pedido.itens.length === 1 && !isConta && (pedido.itens[0]?.descricao || pedido.descricao);
+  if (pedido.descricao && !isConta && pedido.descricao !== 'Fechamento de Conta' && !isSingleItemObsPrinted) {
     add('\nOBS: ' + removeAccents(pedido.descricao) + '\n');
   }
 
   // Rodapé
   add('\n\n');
   addCmd(COMMANDS.TEXT_CENTER);
-  add('Obrigado pela preferencia!\n');
-  add('Sistema PedeAi\n\n\n\n');
+  add('Obrigado pela preferencia!\n\n\n\n');
 
   // Cortar papel
   addCmd(COMMANDS.CUT);
@@ -530,8 +528,9 @@ export const generateTextCupom = (
   
   pedido.itens.forEach(item => {
     out += `${item.quantidade}x ${removeAccents(item.nome)}\n`;
-    if (item.descricao) {
-      out += `   (${removeAccents(item.descricao)})\n`;
+    const itemObs = item.descricao || (pedido.itens.length === 1 && pedido.descricao && !isConta ? pedido.descricao : '');
+    if (itemObs) {
+      out += `   (${removeAccents(itemObs)})\n`;
     }
     if (isConta) {
       const totalItem = item.preco * item.quantidade;
@@ -576,12 +575,12 @@ export const generateTextCupom = (
     }
   }
   
-  if (pedido.descricao && pedido.descricao !== 'Fechamento de Conta') {
+  const isSingleItemObsPrintedText = pedido.itens.length === 1 && !isConta && (pedido.itens[0]?.descricao || pedido.descricao);
+  if (pedido.descricao && !isConta && pedido.descricao !== 'Fechamento de Conta' && !isSingleItemObsPrintedText) {
     out += `\nOBS: ${removeAccents(pedido.descricao)}\n`;
   }
   
-  out += `\nObrigado pela preferencia!\n`;
-  out += `Sistema PedeAi\n\n\n\n`;
+  out += `\nObrigado pela preferencia!\n\n\n\n`;
   return out;
 };
 
@@ -605,7 +604,8 @@ export const printViaBrowser = (
 
     const itensHtml = pedido.itens.map(item => {
       const sub = isConta ? `<br><small style="margin-left:12px;">R$ ${item.preco.toFixed(2)} × ${item.quantidade} = R$ ${(item.preco * item.quantidade).toFixed(2)}</small>` : '';
-      const obs = item.descricao ? `<br><small style="margin-left:12px;color:#555;">(${item.descricao})</small>` : '';
+      const itemObs = item.descricao || (pedido.itens.length === 1 && pedido.descricao && !isConta ? pedido.descricao : '');
+      const obs = itemObs ? `<br><small style="margin-left:12px;color:#333;font-weight:bold;">(${itemObs})</small>` : '';
       return `<tr>
         <td style="padding:2px 0;vertical-align:top;">${item.quantidade}x</td>
         <td style="padding:2px 4px;width:100%;">${item.nome}${obs}${sub}</td>
@@ -642,7 +642,8 @@ export const printViaBrowser = (
       }
     }
 
-    const obsHtml = (pedido.descricao && !isConta)
+    const isSingleItemObsPrintedHtml = pedido.itens.length === 1 && !isConta && (pedido.itens[0]?.descricao || pedido.descricao);
+    const obsHtml = (pedido.descricao && !isConta && !isSingleItemObsPrintedHtml)
       ? `<p style="margin:6px 0;font-size:0.85em;">OBS: ${pedido.descricao}</p>`
       : '';
 
@@ -685,7 +686,7 @@ export const printViaBrowser = (
   <hr>
   <table>${itensHtml}${totalHtml}</table>
   ${obsHtml}
-  <div class="footer">Obrigado pela preferência!<br>Sistema PedeAí</div>
+  <div class="footer">Obrigado pela preferência!</div>
 </body>
 </html>`;
 
@@ -729,7 +730,45 @@ export const printToDevice = async (
   printer: { id: string; connectionType?: 'bluetooth' | 'rawbt' | 'deeplink' | 'browser'; larguraBobina?: '58mm' | '80mm' }
 ): Promise<boolean> => {
   const type = printer.connectionType || 'bluetooth';
+  const isConta = pedido.descricao === 'Fechamento de Conta' || pedido.descricao === 'Simulação de Conta' || (pedido.descricao?.includes('Conta') && !pedido.id.toString().startsWith('AutoF'));
 
+  // Para pedidos de produção (!isConta): IMPRIME 1 CUPOM SEPARADO PARA CADA PRODUTO COM CORTE INDIVIDUAL
+  if (!isConta && pedido.itens && pedido.itens.length > 0) {
+    let allSuccess = true;
+    for (let index = 0; index < pedido.itens.length; index++) {
+      const item = pedido.itens[index];
+      // A observação pertence ao item individual ou é a observação do pedido único
+      const itemDesc = item.descricao || (pedido.itens.length === 1 ? pedido.descricao : (pedido.descricao && index === 0 ? pedido.descricao : ''));
+      const singleItemOrder: PrintOrderData = {
+        ...pedido,
+        itens: [{ ...item, descricao: itemDesc }],
+        descricao: itemDesc || undefined,
+      };
+
+      let success = false;
+      if (type === 'bluetooth') {
+        success = await printViaWebBluetooth(singleItemOrder, restaurantName, printer.id, printer.larguraBobina);
+      } else if (type === 'rawbt') {
+        const textContent = generateTextCupom(singleItemOrder, restaurantName, printer.larguraBobina);
+        success = await printToRawBT(textContent);
+      } else if (type === 'deeplink') {
+        const textContent = generateTextCupom(singleItemOrder, restaurantName, printer.larguraBobina);
+        success = printViaDeepLink(textContent);
+      } else if (type === 'browser') {
+        success = printViaBrowser(singleItemOrder, restaurantName, printer);
+      }
+
+      if (!success) allSuccess = false;
+
+      // Pequena pausa entre transmissões bluetooth de cupons individuais para a impressora realizar o corte e processar
+      if (pedido.itens.length > 1) {
+        await new Promise(r => setTimeout(r, 400));
+      }
+    }
+    return allSuccess;
+  }
+
+  // Para fechamento de conta / mesa, imprime cupom consolidado único
   if (type === 'bluetooth') {
     return printViaWebBluetooth(pedido, restaurantName, printer.id, printer.larguraBobina);
   }
@@ -750,3 +789,4 @@ export const printToDevice = async (
 
   return false;
 };
+

@@ -717,9 +717,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               const segmentedData = {
                 ...printData,
                 itens: itemsToPrint,
-                descricao: pedido.descricao 
-                  ? `${pedido.descricao} (${printer.name})` 
-                  : `PRODUÇÃO: ${printer.name}`
+                descricao: pedido.descricao || ''
               };
               
               const success = await printToDevice(segmentedData, settings.restaurantName, printer);
@@ -1688,9 +1686,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const segmentedData = {
               ...printData,
               itens: itemsToPrint,
-              descricao: pedido.descricao 
-                ? `${pedido.descricao} (${printer.name})` 
-                : `PRODUÇÃO: ${printer.name}`
+              descricao: pedido.descricao || ''
             };
             const success = await printToDevice(segmentedData, settings.restaurantName, printer);
             if (success) hasSuccess = true;
