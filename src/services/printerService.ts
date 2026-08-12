@@ -720,9 +720,11 @@ export const printViaBrowser = (
   }
 };
 
+const PRINT_AGENT_URL = import.meta.env.VITE_PRINT_AGENT_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+
 /**
  * Trata envio para Impressoras de Rede (TCP/IP) ou USB:
- * Tenta enviar via Agente Local (Node.js na porta 3001).
+ * Tenta enviar via Agente Local/Remoto de Impressão (Node.js).
  * Não abre a janela do navegador em conexões TCP/USB para evitar popups.
  */
 const printViaTcpOrUsb = async (
@@ -731,7 +733,8 @@ const printViaTcpOrUsb = async (
   printer: { ipAddress?: string; port?: number; usbPath?: string; connectionType?: string; type?: string; name?: string; larguraBobina?: '58mm' | '80mm' }
 ): Promise<boolean> => {
   try {
-    const res = await fetch('http://localhost:3001/api/test-print', {
+    const agentUrl = PRINT_AGENT_URL.replace(/\/$/, '');
+    const res = await fetch(`${agentUrl}/api/test-print`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -746,7 +749,7 @@ const printViaTcpOrUsb = async (
     });
     if (res.ok) return true;
   } catch {
-    // Agente local Node.js indisponível na porta 3001
+    // Agente de impressão indisponível
   }
 
   // Retorna false em conexões TCP/USB para NÃO abrir a janela de diálogo do Chrome
