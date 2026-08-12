@@ -28,7 +28,12 @@ const Topbar: React.FC<TopbarProps> = () => {
   const [isPrinterStatusOpen, setIsPrinterStatusOpen] = useState(false);
   const [isOnline] = useState(true);
 
+  const btPrinterName = getConnectedDeviceName();
+  const localPrinters = settings.printers?.filter((p: any) => p.isActive) || [];
   const activePrinters = dbPrinters.filter(p => p.isActive);
+  const totalActiveCount = Math.max(activePrinters.length, localPrinters.length, btPrinterName ? 1 : 0);
+  const hasPrinter = totalActiveCount > 0 || !!btPrinterName;
+  const printerLabel = btPrinterName ? `BT: ${btPrinterName}` : totalActiveCount > 0 ? `Impressoras: ${totalActiveCount} Ativa(s)` : 'Sem Impressora';
 
   const handleNavClick = (path: string) => {
     navigate(path);
@@ -48,15 +53,12 @@ const Topbar: React.FC<TopbarProps> = () => {
       <header className="h-16 bg-card border-b border-border shadow-sm px-6 flex items-center justify-between flex-shrink-0">
         {/* Left: Logo + Restaurant Name */}
         <div className="flex items-center gap-3">
-          <Logo size="sm" />
-          <div className="h-6 w-px bg-border" />
-          <div className="flex flex-col">
-            <span className="font-semibold text-foreground text-sm leading-none">
+          <Logo />
+          <div>
+            <h1 className="font-semibold text-foreground text-sm flex items-center gap-2">
               {settings.restaurantName}
-            </span>
-            <span className="text-[9px] text-muted-foreground font-semibold tracking-wider mt-0.5 uppercase">
-              v2.0
-            </span>
+            </h1>
+            <span className="text-xs text-muted-foreground">Sistema PedeAí</span>
           </div>
         </div>
 
@@ -88,9 +90,9 @@ const Topbar: React.FC<TopbarProps> = () => {
           >
             <Printer className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
             <span className="text-[10px] font-bold uppercase tracking-wider text-foreground">
-              {activePrinters.length > 0 ? `Impressora: ${activePrinters.length} Ativa(s)` : 'Sem Impressora'}
+              {printerLabel}
             </span>
-            <span className={`w-2 h-2 rounded-full ${activePrinters.length > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+            <span className={`w-2 h-2 rounded-full ${hasPrinter ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
           </button>
 
           {/* Online Status */}

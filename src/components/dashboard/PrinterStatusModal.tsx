@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { useImpressoras, Printer } from '@/hooks/useImpressoras';
+import { getConnectedDeviceName } from '@/services/printerService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,10 +30,15 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
   onClose,
   onOpenSettings
 }) => {
-  const { restaurantId } = useApp();
+  const { restaurantId, settings } = useApp();
   const { dbPrinters, refetchImpressoras } = useImpressoras(restaurantId);
   const [isAgentConnected, setIsAgentConnected] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(false);
+
+  const btDeviceName = getConnectedDeviceName();
+  const localPrinters = settings.printers?.filter((p: any) => p.isActive || p.enabled) || [];
+  const activePrinters = dbPrinters.filter((p) => p.isActive);
+  const totalActiveCount = Math.max(activePrinters.length, localPrinters.length, btDeviceName ? 1 : 0);
 
   const checkAgentHealth = async () => {
     setIsChecking(true);
@@ -172,22 +178,68 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
             </div>
           </div>
 
-          {/* Lista de Impressoras Cadastradas */}
+          {/* Impressora Bluetooth Pareada no Navegador */}
+          {btDeviceName && (
+            <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-between shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                  <Radio className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-foreground">{btDeviceName}</span>
+                    <Badge className="bg-emerald-500 text-white text-[9px] font-extrabold px-2">
+                      BLUETOOTH ATIVO
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 font-medium">
+                    Conectado e pareado diretamente no Navegador (Web Bluetooth)
+                  </p>
+                </div>
+              </div>
+              <Badge variant="outline" className="text-emerald-600 dark:text-emerald-400 border-emerald-500/40 text-[10px] font-bold">
+                🟢 Pronta p/ Imprimir
+              </Badge>
+            </div>
+          )}
+
+          {/* Impressoras Locais do LocalStorage */}
+          {localPrinters.length > 0 && dbPrinters.length === 0 && (
+            <div className="space-y-2">
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                Configuração Local ({localPrinters.length} Ativa)
+              </h4>
+              {localPrinters.map((lp: any, idx: number) => (
+                <div key={idx} className="p-3.5 rounded-xl border border-border bg-card flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <PrinterIcon className="w-4 h-4 text-primary" />
+                    <div>
+                      <span className="font-bold text-sm">{lp.name || 'Impressora Local'}</span>
+                      <p className="text-xs text-muted-foreground">{lp.connectionType || 'Bluetooth/USB Local'}</p>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="text-[10px] font-bold">ATIVA LOCALMENTE</Badge>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Lista de Impressoras Cadastradas no Banco de Dados */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Impressoras Cadastradas ({activePrinters.length} Ativas)
+                Impressoras no Banco de Dados ({activePrinters.length} Ativas)
               </h4>
               <Badge variant="secondary" className="text-[10px] font-semibold">
                 {dbPrinters.length} Total
               </Badge>
             </div>
 
-            {dbPrinters.length === 0 ? (
+            {dbPrinters.length === 0 && !btDeviceName && localPrinters.length === 0 ? (
               <div className="p-6 text-center border border-dashed border-border rounded-xl space-y-2">
                 <PrinterIcon className="w-8 h-8 text-muted-foreground mx-auto opacity-40" />
                 <p className="text-xs text-muted-foreground">
-                  Nenhuma impressora cadastrada ainda.
+                  Nenhuma impressora cadastrada no banco de dados do restaurante.
                 </p>
                 {onOpenSettings && (
                   <Button
@@ -200,7 +252,26 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
                     className="mt-2 text-xs rounded-xl"
                   >
                     <Settings className="w-3.5 h-3.5 mr-1.5" />
-                    Cadastrar Impressora
+                    Cadastrar Impressora no Banco
+                  </Button>
+                )}
+              </div>
+            ) : dbPrinters.length === 0 ? (
+              <div className="p-3 text-center border border-border/60 bg-muted/20 rounded-xl">
+                <p className="text-xs text-muted-foreground">
+                  Você já tem impressora conectada localmente/Bluetooth. Para sincronizá-la com o robô de impressão na nuvem, cadastre-a em <strong>Configurações > Impressoras</strong>.
+                </p>
+                {onOpenSettings && (
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => {
+                      onClose();
+                      onOpenSettings();
+                    }}
+                    className="mt-1 text-xs text-primary h-auto p-0 font-bold"
+                  >
+                    + Cadastrar no Banco de Dados do Restaurante
                   </Button>
                 )}
               </div>
