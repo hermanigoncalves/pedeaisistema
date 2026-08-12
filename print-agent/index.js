@@ -337,20 +337,134 @@ function stripAccents(str) {
   return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
+// ─── Geração de cupom e Fila Persistente ──────────────────────────────────────
+
+const QUEUE_FILE_PATH = path.join(__dirname, 'print_queue.json');
+let persistentPrintQueue = [];
+let isProcessingPrintQueue = false;
+
 /**
- * Imprime um cupom de pedido em uma determinada estação.
- * @param {'kitchen'|'bar'|'receipt'|'all'} station
- * @param {object} pedido
- * @param {Array}  itens   - Itens filtrados para esta estação
- * @param {boolean} isBill - true se for fechamento de conta
- * @param {number}  divisoes - quantidade de divisões da conta (opcional)
+ * Carrega a fila de impressão do disco se houver cupons pendentes.
  */
-async function printCupom(station, pedido, itens, isBill = false, divisoes = undefined) {
-  const printers = createPrintersList(station);
-  if (printers.length === 0) {
-    console.log(`[PrintAgent] Nenhuma impressora ativa para a estacao [${station.toUpperCase()}] — pulando.`);
+function loadPrintQueue() {
+  try {
+    if (fs.existsSync(QUEUE_FILE_PATH)) {
+      const data = fs.readFileSync(QUEUE_FILE_PATH, 'utf8');
+      persistentPrintQueue = JSON.parse(data || '[]');
+      if (persistentPrintQueue.length > 0) {
+        console.log(`[PrintQueue] 📂 Fila em disco carregada: ${persistentPrintQueue.length} cupom(ns) pendente(s) aguardando impressao.`);
+      }
+    }
+  } catch (err) {
+    console.error('[PrintQueue] ❌ Erro ao ler print_queue.json:', err.message);
+    persistentPrintQueue = [];
+  }
+}
+
+/**
+ * Salva a fila de impressão no disco de forma atômica.
+ */
+function savePrintQueue() {
+  try {
+    fs.writeFileSync(QUEUE_FILE_PATH, JSON.stringify(persistentPrintQueue, null, 2), 'utf8');
+  } catch (err) {
+    console.error('[PrintQueue] ❌ Erro ao salvar print_queue.json:', err.message);
+  }
+}
+
+/**
+ * Adiciona uma tarefa de impressão à fila persistente.
+ */
+function enqueuePrintTask(station, pedido, itens, isBill = false, divisoes = undefined) {
+  const firstItemName = (itens && itens[0] && (itens[0].nome || itens[0].productName)) || 'item';
+  const taskId = `${pedido.id}_${station}_${isBill ? 'bill' : 'prod'}_${firstItemName}`;
+
+  // Evita duplicata idêntica na fila ativa
+  const exists = persistentPrintQueue.some(t => t.taskId === taskId);
+  if (exists) {
+    console.log(`[PrintQueue] ⚠️ Cupom "${taskId}" ja esta na fila. Ignorando inclusao duplicada.`);
     return;
   }
+
+  const task = {
+    taskId,
+    station,
+    pedido,
+    itens,
+    isBill,
+    divisoes,
+    addedAt: new Date().toISOString(),
+    retryCount: 0
+  };
+
+  persistentPrintQueue.push(task);
+  savePrintQueue();
+  console.log(`[PrintQueue] 📥 Cupom retido/enfileirado (Total na fila: ${persistentPrintQueue.length}) — ${isBill ? 'Conta' : 'Pedido #' + pedido.id}`);
+
+  // Tenta processar a fila imediatamente
+  processPrintQueue();
+}
+
+/**
+ * Processa sequencialmente as tarefas da fila de impressão.
+ */
+async function processPrintQueue() {
+  if (isProcessingPrintQueue) return;
+  if (persistentPrintQueue.length === 0) return;
+
+  isProcessingPrintQueue = true;
+
+  try {
+    while (persistentPrintQueue.length > 0) {
+      const currentTask = persistentPrintQueue[0];
+      console.log(`[PrintQueue] 🖨️ Processando cupom (${currentTask.retryCount + 1}ª tentativa) — Pedido #${currentTask.pedido.id} [${currentTask.station.toUpperCase()}]...`);
+
+      const success = await executeSinglePrintTask(currentTask);
+
+      if (success) {
+        // Sucesso! Remove da fila e atualiza o arquivo
+        persistentPrintQueue.shift();
+        savePrintQueue();
+        console.log(`[PrintQueue] ✅ Impressao concluida com sucesso! Fila restante: ${persistentPrintQueue.length}`);
+      } else {
+        // Falha de conexão/impressora -> Mantém na fila e interrompe o loop para tentar novamente em 5s
+        currentTask.retryCount = (currentTask.retryCount || 0) + 1;
+        savePrintQueue();
+        console.warn(`[PrintQueue] ⚠️ Impressora offline, desconectada ou em erro. Cupom do Pedido #${currentTask.pedido.id} MANTIDO NA FILA. Tentativa em 5s...`);
+        break;
+      }
+    }
+  } catch (err) {
+    console.error('[PrintQueue] ❌ Erro ao processar fila de impressao:', err.message);
+  } finally {
+    isProcessingPrintQueue = false;
+  }
+}
+
+// Iniciar verificador periódico da fila (a cada 5 segundos)
+setInterval(() => {
+  if (persistentPrintQueue.length > 0 && !isProcessingPrintQueue) {
+    processPrintQueue();
+  }
+}, 5000);
+
+// Carregar fila existente ao iniciar a aplicação
+loadPrintQueue();
+
+/**
+ * Executa fisicamente a impressão do cupom de uma tarefa da fila.
+ * Retorna true se a impressão foi bem-sucedida, false se falhou.
+ */
+async function executeSinglePrintTask(task) {
+  const { station, pedido, itens, isBill, divisoes } = task;
+  const printers = createPrintersList(station);
+
+  if (printers.length === 0) {
+    console.log(`[PrintAgent] Nenhuma impressora ativa para a estacao [${station.toUpperCase()}] — aguardando conexao.`);
+    return false;
+  }
+
+  let allSuccess = true;
 
   for (const { name, printer } of printers) {
     const dataStr = new Date().toLocaleString('pt-BR');
@@ -445,8 +559,11 @@ async function printCupom(station, pedido, itens, isBill = false, divisoes = und
       console.log(`[PrintAgent] ✅ Impresso em "${name}" (${station}) — ${mesaLabel}`);
     } catch (err) {
       console.error(`[PrintAgent] ❌ Erro ao imprimir em "${name}" (${station}):`, err.message);
+      allSuccess = false;
     }
   }
+
+  return allSuccess;
 }
 
 // ─── Parser de itens vindo do Banco de Dados (Suporta JSON e Legado) ─────────
@@ -548,7 +665,7 @@ async function handleNewOrder(pedido) {
     for (let idx = 0; idx < itens.length; idx++) {
       const item = itens[idx];
       const itemObs = item.descricao || (itens.length === 1 ? cleanPedidoDesc : (idx === 0 && cleanPedidoDesc ? cleanPedidoDesc : ''));
-      await printCupom('all', { ...pedido, descricao: cleanPedidoDesc }, [{ ...item, descricao: itemObs }]);
+      enqueuePrintTask('all', { ...pedido, descricao: cleanPedidoDesc }, [{ ...item, descricao: itemObs }]);
     }
   }
 
@@ -560,7 +677,7 @@ async function handleNewOrder(pedido) {
     for (let idx = 0; idx < kitchenItems.length; idx++) {
       const item = kitchenItems[idx];
       const itemObs = item.descricao || (kitchenItems.length === 1 ? cleanPedidoDesc : (idx === 0 && cleanPedidoDesc ? cleanPedidoDesc : ''));
-      await printCupom('kitchen', { ...pedido, descricao: cleanPedidoDesc }, [{ ...item, descricao: itemObs }]);
+      enqueuePrintTask('kitchen', { ...pedido, descricao: cleanPedidoDesc }, [{ ...item, descricao: itemObs }]);
     }
   }
 
@@ -568,7 +685,7 @@ async function handleNewOrder(pedido) {
     for (let idx = 0; idx < barItems.length; idx++) {
       const item = barItems[idx];
       const itemObs = item.descricao || (barItems.length === 1 ? cleanPedidoDesc : '');
-      await printCupom('bar', { ...pedido, descricao: cleanPedidoDesc }, [{ ...item, descricao: itemObs }]);
+      enqueuePrintTask('bar', { ...pedido, descricao: cleanPedidoDesc }, [{ ...item, descricao: itemObs }]);
     }
   }
 }
@@ -654,19 +771,11 @@ async function handleBillClosed(pedido) {
   // 1. Imprimir a conta se houver impressora do tipo 'all' (Caixa / Imprimir Tudo)
   const hasAllPrinter = activePrinters.some(p => p.tipo === 'all' && p.ativo === true);
   if (hasAllPrinter) {
-    await printCupom('all', pedido, itensAgrupados, true, divisoes);
+    enqueuePrintTask('all', pedido, itensAgrupados, true, divisoes);
   }
 
   // 2. Imprimir na de recibo específica se houver
-  await printCupom('receipt', pedido, itensAgrupados, true, divisoes);
-}
-
-// Fila de execução sequencial para evitar conexões TCP concorrentes na mesma impressora
-let printQueue = Promise.resolve();
-
-function queuePrint(task) {
-  printQueue = printQueue.then(() => task().catch(err => console.error('[PrintQueue] Erro na fila de impressão:', err)));
-  return printQueue;
+  enqueuePrintTask('receipt', pedido, itensAgrupados, true, divisoes);
 }
 
 // ─── Supabase Realtime ────────────────────────────────────────────────────────
