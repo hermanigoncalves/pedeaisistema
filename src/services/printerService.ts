@@ -681,6 +681,200 @@ export const printViaBrowser = (
   <h1>${restaurantName}</h1>
   <div class="sub">${dataStr}</div>
   <hr>
+/**
+ * Imprime via RawBT Deep Link
+ */
+export const printViaDeepLink = (content: string) => {
+  const base64 = btoa(unescape(encodeURIComponent(content)));
+  window.location.href = `rawbt:base64,${base64}`;
+  return true;
+};
+
+/**
+ * Gera a versão texto legível do cupom (para RawBT e outros canais texto)
+ */
+export const generateTextCupom = (
+  pedido: PrintOrderData, 
+  restaurantName: string,
+  larguraBobina: '58mm' | '80mm' = '80mm'
+): string => {
+  const isConta = pedido.descricao === 'Fechamento de Conta' || pedido.descricao === 'Simulação de Conta' || (pedido.descricao?.includes('Conta') && !pedido.id.toString().startsWith('AutoF'));
+  
+  const lineCharCount = larguraBobina === '58mm' ? 32 : 48;
+  const lineStr = '-'.repeat(lineCharCount) + '\n';
+
+  let out = "";
+  out += `${removeAccents(restaurantName).toUpperCase()}\n`;
+  out += `${new Date(pedido.created_at).toLocaleString('pt-BR')}\n`;
+  out += lineStr;
+  
+  if (isConta) {
+    out += `CONTA MESA ${pedido.mesa}\n`;
+    if (pedido.clienteNome) out += `${removeAccents(pedido.clienteNome)}\n`;
+  } else {
+    out += `MESA ${pedido.mesa}\n`;
+    out += `Pedido #${pedido.id}\n`;
+    if (pedido.clienteNome) out += `Cliente: ${removeAccents(pedido.clienteNome)}\n`;
+  }
+  out += lineStr;
+  out += `ITENS:\n`;
+  
+  pedido.itens.forEach(item => {
+    out += `${item.quantidade}x ${removeAccents(item.nome)}\n`;
+    const itemObs = item.descricao || (pedido.itens.length === 1 && pedido.descricao && !isConta ? pedido.descricao : '');
+    if (itemObs) {
+      out += `   (${removeAccents(itemObs)})\n`;
+    }
+    if (isConta) {
+      const totalItem = item.preco * item.quantidade;
+      out += `   Preco: R$ ${item.preco.toFixed(2)} | Sub: R$ ${totalItem.toFixed(2)}\n`;
+    }
+  });
+  out += lineStr;
+  
+  if (pedido.subtotal !== undefined && pedido.totalWithFee !== undefined) {
+    out += `Subtotal: R$ ${pedido.subtotal.toFixed(2)}\n`;
+    if (pedido.couvert && pedido.couvert > 0) {
+      out += `Couvert Artistico: R$ ${pedido.couvert.toFixed(2)}\n`;
+    }
+    if (pedido.serviceFeePercentage && pedido.serviceFeePercentage > 0) {
+      out += `Servico (${pedido.serviceFeePercentage}%): R$ ${(pedido.serviceFee || 0).toFixed(2)}\n`;
+      out += lineStr;
+      out += `TOTAL: R$ ${pedido.totalWithFee.toFixed(2)}\n`;
+      out += lineStr;
+      if (pedido.divisoes && pedido.divisoes > 1) {
+        const valorDividido = pedido.totalWithFee / pedido.divisoes;
+        out += `Dividido por ${pedido.divisoes}: R$ ${valorDividido.toFixed(2)} p/ pessoa\n`;
+        out += lineStr;
+      }
+      const totalSemTaxa = pedido.subtotal + (pedido.couvert || 0);
+      out += `(Total s/ taxa: R$ ${totalSemTaxa.toFixed(2)})\n`;
+    } else {
+      out += `TOTAL: R$ ${pedido.totalWithFee.toFixed(2)}\n`;
+      out += lineStr;
+      if (pedido.divisoes && pedido.divisoes > 1) {
+        const valorDividido = pedido.totalWithFee / pedido.divisoes;
+        out += `Dividido por ${pedido.divisoes}: R$ ${valorDividido.toFixed(2)} p/ pessoa\n`;
+        out += lineStr;
+      }
+    }
+  } else if (isConta) {
+    out += `TOTAL: R$ ${pedido.total.toFixed(2)}\n`;
+    out += lineStr;
+    if (pedido.divisoes && pedido.divisoes > 1) {
+      const valorDividido = pedido.total / pedido.divisoes;
+      out += `Dividido por ${pedido.divisoes}: R$ ${valorDividido.toFixed(2)} p/ pessoa\n`;
+      out += lineStr;
+    }
+  }
+  
+  const isSingleItemObsPrintedText = pedido.itens.length === 1 && !isConta && (pedido.itens[0]?.descricao || pedido.descricao);
+  if (pedido.descricao && !isConta && pedido.descricao !== 'Fechamento de Conta' && !isSingleItemObsPrintedText) {
+    out += `\nOBS: ${removeAccents(pedido.descricao)}\n`;
+  }
+  
+  out += `\nObrigado pela preferencia!\n`;
+  out += `Sistema PedeAi\n\n\n\n`;
+  return out;
+};
+
+/**
+ * Imprime via diálogo nativo do navegador (impressoras instaladas no PC/Windows/Mac)
+ * Usa um iframe oculto com layout térmico 80mm para não imprimir o painel inteiro
+ */
+export const printViaBrowser = (
+  pedido: PrintOrderData, 
+  restaurantName: string,
+  printer?: { larguraBobina?: '58mm' | '80mm' }
+): boolean => {
+  try {
+    const isConta = pedido.descricao === 'Fechamento de Conta' || pedido.descricao === 'Simulação de Conta';
+    const dataStr = new Date(pedido.created_at).toLocaleString('pt-BR');
+    
+    // Obter o tamanho e estilização corretos da bobina
+    const largura = printer?.larguraBobina === '58mm' ? '58mm' : '80mm';
+    const padding = printer?.larguraBobina === '58mm' ? '1mm 2mm' : '3mm 4mm';
+    const fontSize = printer?.larguraBobina === '58mm' ? '11px' : '12px';
+
+    const itensHtml = pedido.itens.map(item => {
+      const sub = isConta ? `<br><small style="margin-left:12px;">R$ ${item.preco.toFixed(2)} × ${item.quantidade} = R$ ${(item.preco * item.quantidade).toFixed(2)}</small>` : '';
+      const itemObs = item.descricao || (pedido.itens.length === 1 && pedido.descricao && !isConta ? pedido.descricao : '');
+      const obs = itemObs ? `<br><small style="margin-left:12px;color:#333;font-weight:bold;">(${itemObs})</small>` : '';
+      return `<tr>
+        <td style="padding:2px 0;vertical-align:top;">${item.quantidade}x</td>
+        <td style="padding:2px 4px;width:100%;">${item.nome}${obs}${sub}</td>
+      </tr>`;
+    }).join('');
+
+    let totalHtml = '';
+    if (pedido.subtotal !== undefined && pedido.totalWithFee !== undefined) {
+      totalHtml += `<tr><td colspan="2"><hr style="border:none;border-top:1px dashed #000;margin:4px 0"></td></tr>`;
+      if (pedido.serviceFeePercentage && pedido.serviceFeePercentage > 0) {
+        totalHtml += `<tr><td colspan="2" style="text-align:right;">Subtotal: R$ ${pedido.subtotal.toFixed(2)}</td></tr>`;
+        if (pedido.couvert && pedido.couvert > 0) {
+          totalHtml += `<tr><td colspan="2" style="text-align:right;">Couvert Artístico: R$ ${pedido.couvert.toFixed(2)}</td></tr>`;
+        }
+        totalHtml += `<tr><td colspan="2" style="text-align:right;">Serviço (${pedido.serviceFeePercentage}%): R$ ${(pedido.serviceFee || 0).toFixed(2)}</td></tr>`;
+        totalHtml += `<tr><td colspan="2" style="text-align:right;font-weight:bold;font-size:1.1em;">TOTAL: R$ ${pedido.totalWithFee.toFixed(2)}</td></tr>`;
+      } else {
+        if (pedido.couvert && pedido.couvert > 0) {
+          totalHtml += `<tr><td colspan="2" style="text-align:right;">Subtotal: R$ ${pedido.subtotal.toFixed(2)}</td></tr>`;
+          totalHtml += `<tr><td colspan="2" style="text-align:right;">Couvert Artístico: R$ ${pedido.couvert.toFixed(2)}</td></tr>`;
+        }
+        totalHtml += `<tr><td colspan="2" style="text-align:right;font-weight:bold;font-size:1.1em;">TOTAL: R$ ${pedido.totalWithFee.toFixed(2)}</td></tr>`;
+      }
+      if (pedido.divisoes && pedido.divisoes > 1) {
+        const valorDividido = pedido.totalWithFee / pedido.divisoes;
+        totalHtml += `<tr><td colspan="2" style="text-align:right;font-weight:bold;font-size:1.0em;padding-top:4px;">Dividido por ${pedido.divisoes}: R$ ${valorDividido.toFixed(2)} por pessoa</td></tr>`;
+      }
+    } else if (isConta) {
+      totalHtml += `<tr><td colspan="2"><hr style="border:none;border-top:1px dashed #000;margin:4px 0"></td></tr>`;
+      totalHtml += `<tr><td colspan="2" style="text-align:right;font-weight:bold;font-size:1.1em;">TOTAL: R$ ${pedido.total.toFixed(2)}</td></tr>`;
+      if (pedido.divisoes && pedido.divisoes > 1) {
+        const valorDividido = pedido.total / pedido.divisoes;
+        totalHtml += `<tr><td colspan="2" style="text-align:right;font-weight:bold;font-size:1.0em;padding-top:4px;">Dividido por ${pedido.divisoes}: R$ ${valorDividido.toFixed(2)} por pessoa</td></tr>`;
+      }
+    }
+
+    const isSingleItemObsPrintedHtml = pedido.itens.length === 1 && !isConta && (pedido.itens[0]?.descricao || pedido.descricao);
+    const obsHtml = (pedido.descricao && !isConta && !isSingleItemObsPrintedHtml)
+      ? `<p style="margin:6px 0;font-size:0.85em;">OBS: ${pedido.descricao}</p>`
+      : '';
+
+    const mesaLabel = isConta ? `CONTA — MESA ${pedido.mesa}` : `MESA ${pedido.mesa} — Pedido #${pedido.id}`;
+    const clienteHtml = pedido.clienteNome ? `<div style="font-size:0.85em;">${pedido.clienteNome}</div>` : '';
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { 
+    font-family: 'Courier New', monospace; 
+    font-size: ${fontSize}; 
+    width: ${largura}; 
+    padding: ${padding}; 
+    color: #000; 
+  }
+  h1 { font-size: 1.1em; text-align: center; text-transform: uppercase; margin-bottom: 2px; }
+  .sub { font-size: 0.8em; text-align: center; color: #333; margin-bottom: 4px; }
+  hr { border: none; border-top: 1px dashed #000; margin: 4px 0; }
+  table { width: 100%; border-collapse: collapse; }
+  td { font-size: 0.85em; vertical-align: top; }
+  .footer { text-align: center; font-size: 0.75em; margin-top: 8px; color: #555; }
+  @media print { 
+    @page { 
+      margin: 0; 
+      size: ${largura} auto; 
+    } 
+  }
+</style>
+</head>
+<body>
+  <h1>${restaurantName}</h1>
+  <div class="sub">${dataStr}</div>
+  <hr>
   <div style="font-weight:bold;text-align:center;">${mesaLabel}</div>
   ${clienteHtml}
   <hr>
@@ -715,14 +909,15 @@ export const printViaBrowser = (
 
     return true;
   } catch (err) {
-      return false;
+    console.error('[PrinterService] Erro ao imprimir via navegador:', err);
+    return false;
   }
 };
 
 /**
  * Trata envio para Impressoras de Rede (TCP/IP) ou USB:
- * Tenta primeiro via Agente Local (Node.js na porta 3001), e faz fallback
- * para o diálogo nativo do navegador caso o agente local não responda.
+ * Tenta enviar via Agente Local (Node.js na porta 3001).
+ * Não abre a janela do navegador em conexões TCP/USB para evitar popups.
  */
 const printViaTcpOrUsb = async (
   pedido: PrintOrderData, 
@@ -748,8 +943,8 @@ const printViaTcpOrUsb = async (
     // Agente local Node.js indisponível na porta 3001
   }
 
-  // Se o agente local Node.js não responder (ex: acessando via tablet/celular/navegador sem o agente rodando no mesmo PC), usa o diálogo nativo de impressão como fallback
-  return printViaBrowser(pedido, restaurantName, printer);
+  // Retorna false em conexões TCP/USB para NÃO abrir a janela de diálogo do Chrome
+  return false;
 };
 
 /**
