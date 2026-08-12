@@ -307,8 +307,8 @@ function createPrintersList(station) {
         : dbPrinter.usb_path;
 
       const nameLower = (dbPrinter.nome || '').toLowerCase();
-      const is58mm = nameLower.includes('58') || nameLower.includes('bt') || nameLower.includes('bluetooth') || nameLower.includes('mtp') || nameLower.includes('goojprt') || nameLower.includes('pt-210') || nameLower.includes('rpp300');
-      const printerCols = is58mm ? 32 : 42; // 32 para impressoras Bluetooth 58mm, 42 para 80mm
+      const is58mm = nameLower.includes('58') || nameLower.includes('bt') || nameLower.includes('bluetooth') || nameLower.includes('mtp') || nameLower.includes('goojprt') || nameLower.includes('pt-210') || nameLower.includes('rpp300') || nameLower.includes('kapbom') || nameLower.includes('pos') || nameLower.includes('mini');
+      const printerCols = is58mm ? 32 : 42; // 32 para impressoras Bluetooth/Kapbom 58mm, 42 para 80mm
 
       return {
         name: dbPrinter.nome,
@@ -519,9 +519,17 @@ async function executeSinglePrintTask(task) {
 
   for (const { name, printer } of printers) {
     const dataStr = new Date().toLocaleString('pt-BR');
+    const stationNameMap = {
+      kitchen: 'COZINHA',
+      bar: 'BAR',
+      receipt: 'RECIBO',
+      all: 'GERAL'
+    };
+    const stationTitle = stationNameMap[station] || station.toUpperCase();
+
     const mesaLabel = isBill
       ? `CONTA — MESA ${pedido.mesa}`
-      : `MESA ${pedido.mesa} — Pedido #${pedido.id}`;
+      : `MESA ${pedido.mesa} — [ ${stationTitle} ]`;
 
     printer.alignCenter();
     printer.bold(true);
@@ -546,11 +554,7 @@ async function executeSinglePrintTask(task) {
       const qty = item.quantidade || item.quantity || 1;
       const nome = stripAccents(item.nome || item.productName || '?');
       const preco = (item.preco || item.price || 0).toFixed(2);
-      let obs = item.descricao || item.description || (!isBill && pedido.descricao ? pedido.descricao : '');
-
-      if (obs) {
-        obs = cleanObsText(obs);
-      }
+      let obs = cleanObsText(item.descricao || item.description || '');
 
       if (isBill) {
         printer.leftRight(`${qty}x ${nome}`, `R$${preco}`);
@@ -589,14 +593,6 @@ async function executeSinglePrintTask(task) {
         printer.bold(false);
         printer.alignLeft();
       }
-    }
-
-    const cleanGeneralObs = cleanObsText(pedido.descricao || '');
-
-    const isSingleItemObsPrinted = itens.length === 1 && !isBill;
-    if (cleanGeneralObs && !isBill && cleanGeneralObs !== 'Fechamento de Conta' && !isSingleItemObsPrinted) {
-      printer.drawLine();
-      printer.println(stripAccents(`OBS: ${cleanGeneralObs}`));
     }
 
     printer.drawLine();
@@ -766,11 +762,11 @@ function flushOrderBatch(mesa) {
   const { pedidoSample, items } = batch;
   console.log(`[PrintAgent] 📦 Processando lote agrupado da Mesa ${mesa} — Total de ${items.length} item(ns).`);
 
-  const hasAllPrinter = activePrinters.some(p => p.tipo === 'all' && p.ativo === true);
+  // Agrupa sempre por estação individual de preparo (Cozinha vs Bar vs Outras)
   const stationGroups = new Map();
 
   for (const item of items) {
-    const station = hasAllPrinter ? 'all' : getItemStation(item.nome || item.productName, item.productId || item.id);
+    const station = getItemStation(item.nome || item.productName, item.productId || item.id);
     if (!stationGroups.has(station)) {
       stationGroups.set(station, []);
     }
@@ -781,7 +777,7 @@ function flushOrderBatch(mesa) {
   for (const [station, stationItems] of stationGroups.entries()) {
     const consolidated = consolidateItems(stationItems);
     console.log(`[PrintAgent] 🖨️ Enfileirando cupom da estacao [${station.toUpperCase()}] com ${consolidated.length} item(ns) para Mesa ${mesa}`);
-    enqueuePrintTask(station, pedidoSample, consolidated, false, undefined, idx++);
+    enqueuePrintTask(station, { ...pedidoSample, descricao: '' }, consolidated, false, undefined, idx++);
   }
 }
 
