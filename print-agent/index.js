@@ -204,107 +204,67 @@ async function loadProductStationsCache() {
 async function loadPrintersFromDb() {
   if (!RESTAURANTE_ID) return;
   try {
-    const { data, error } = await supabase
+    // Busca TODAS as impressoras do restaurante (ativas e inativas) para diagnóstico completo
+    const { data: allPrinters, error } = await supabase
       .from('Impressoras')
       .select('*')
-      .eq('restaurante_id', RESTAURANTE_ID)
-      .eq('ativo', true);
+      .eq('restaurante_id', RESTAURANTE_ID);
 
     if (error) throw error;
 
-    activePrinters = data || [];
-    console.log(`\n============================================================`);
-    console.log(`[PrintAgent] 🖨️ IMPRESSORAS CADASTRADAS NO SISTEMA PEDEAI (${activePrinters.length}):`);
-    console.log(`============================================================`);
+    const all = allPrinters || [];
+    activePrinters = all.filter(p => p.ativo === true);
 
-    if (activePrinters.length === 0) {
-      console.log('[PrintAgent] ⚠️ Nenhuma impressora cadastrada no Sistema PedeAí para este restaurante.');
-      console.log('[PrintAgent] 💡 Dica: Cadastre a sua impressora no Dashboard > Configurações > Impressoras.');
+    console.log('');
+    console.log('╔══════════════════════════════════════════════════════════════╗');
+    console.log('║           🖨️  IMPRESSORAS CADASTRADAS NO SISTEMA            ║');
+    console.log('╠══════════════════════════════════════════════════════════════╣');
+
+    if (all.length === 0) {
+      console.log('║  ⚠️  NENHUMA impressora cadastrada para este restaurante!   ║');
+      console.log('║                                                              ║');
+      console.log('║  👉 Cadastre em: Dashboard > Configurações > Impressoras     ║');
+      console.log('║     ou configure no arquivo .env do print-agent              ║');
     } else {
-      await verifySystemPrinters();
+      all.forEach((p, i) => {
+        const status = p.ativo ? '✅ ATIVA' : '❌ INATIVA';
+        const tipo = (p.tipo || 'all').toUpperCase();
+        let conexaoInfo = '';
+
+        if (p.conexao === 'tcp') {
+          conexaoInfo = `Rede TCP ${p.ip || '?'}:${p.porta || 9100}`;
+        } else if (p.conexao === 'bluetooth') {
+          conexaoInfo = `Bluetooth ${p.usb_path || p.ip || '?'}`;
+        } else {
+          conexaoInfo = `USB/Dispositivo ${p.usb_path || '?'}`;
+        }
+
+        console.log(`║  ${i + 1}. ${p.nome || 'Sem Nome'}`);
+        console.log(`║     Status: ${status}  |  Estação: ${tipo}`);
+        console.log(`║     Conexão: ${conexaoInfo}`);
+        if (i < all.length - 1) console.log('║  ──────────────────────────────────────────────────────────');
+      });
     }
-    console.log(`============================================================\n`);
+
+    // Mostrar config do .env como fallback
+    const envKitchen = process.env.PRINTER_KITCHEN_USB || process.env.PRINTER_KITCHEN_HOST;
+    const envBar = process.env.PRINTER_BAR_USB || process.env.PRINTER_BAR_HOST;
+    const envReceipt = process.env.PRINTER_RECEIPT_USB || process.env.PRINTER_RECEIPT_HOST;
+    if (envKitchen || envBar || envReceipt) {
+      console.log('║                                                              ');
+      console.log('║  📋 Fallback .env:');
+      if (envKitchen) console.log(`║     Cozinha: ${envKitchen}`);
+      if (envBar) console.log(`║     Bar: ${envBar}`);
+      if (envReceipt) console.log(`║     Recibo: ${envReceipt}`);
+    }
+
+    console.log('╠══════════════════════════════════════════════════════════════╣');
+    console.log(`║  Total: ${all.length} cadastrada(s) | ${activePrinters.length} ativa(s)              `);
+    console.log('╚══════════════════════════════════════════════════════════════╝');
+    console.log('');
+
   } catch (err) {
     console.error('[PrintAgent] ❌ Erro ao carregar impressoras do Supabase:', err.message);
-  }
-}
-
-/**
- * Testa e verifica a conectividade real de cada impressora cadastrada no Sistema PedeAí.
- */
-async function verifySystemPrinters() {
-  for (const p of activePrinters) {
-    const isTcp = p.conexao === 'tcp';
-    if (isTcp && p.ip) {
-      const isOnline = await testTcpPrinterConnection(p.ip, p.porta || 9100);
-      if (isOnline) {
-        console.log(`   ✅ [${p.tipo.toUpperCase()}] "${p.nome}" (IP ${p.ip}:${p.porta || 9100}) -> ONLINE E PRONTA NO SISTEMA`);
-      } else {
-        console.log(`   ❌ [${p.tipo.toUpperCase()}] "${p.nome}" (IP ${p.ip}:${p.porta || 9100}) -> OFFLINE / INDISPONIVEL NA REDE`);
-      }
-    } else if (p.usb_path || p.nome) {
-      console.log(`   ✅ [${p.tipo.toUpperCase()}] "${p.nome}" (${p.conexao === 'usb' ? 'USB/Bluetooth: ' + (p.usb_path || p.nome) : 'Sistema'}) -> CADASTRADA E PRONTA NO SISTEMA`);
-    }
-  }
-}
-
-function testTcpPrinterConnection(host, port = 9100, timeoutMs = 2000) {
-  return new Promise((resolve) => {
-    const net = require('net');
-    const socket = new net.Socket();
-    let done = false;
-
-    socket.setTimeout(timeoutMs);
-    socket.connect(port, host, () => {
-      done = true;
-      socket.destroy();
-      resolve(true);
-    });
-
-    socket.on('error', () => {
-      if (!done) { done = true; socket.destroy(); resolve(false); }
-    });
-
-    socket.on('timeout', () => {
-      if (!done) { done = true; socket.destroy(); resolve(false); }
-    });
-  });
-}
-
-/**
- * Detecta e lista as impressoras locais conectadas no Windows/Bluetooth/USB
- */
-function listSystemPrinters() {
-  try {
-    const platform = process.platform;
-    let printers = [];
-
-    if (platform === 'win32') {
-      const raw = exec('wmic printer get Name /format:list', { encoding: 'utf-8' });
-      // Executado em modo rapido
-      const { execSync } = require('child_process');
-      const rawSync = execSync('wmic printer get Name /format:list', { encoding: 'utf-8', timeout: 3000 });
-      printers = rawSync
-        .split(/\r?\n/)
-        .map(l => l.trim())
-        .filter(l => l.startsWith('Name='))
-        .map(l => l.replace(/^Name=/, '').trim())
-        .filter(Boolean);
-    } else {
-      const { execSync } = require('child_process');
-      const rawSync = execSync('lpstat -e 2>/dev/null || lpstat -a 2>/dev/null', { encoding: 'utf-8', timeout: 3000 });
-      printers = rawSync
-        .split(/\r?\n/)
-        .map(l => l.split(' ')[0].trim())
-        .filter(Boolean);
-    }
-
-    if (printers.length > 0) {
-      console.log(`[PrintAgent] 🔍 Impressoras detectadas no Sistema Operacional / Windows (${printers.length}):`);
-      printers.forEach(p => console.log(`   * ${p}`));
-    }
-  } catch (err) {
-    // Ignora silenciosamente se o comando de SO nao responder
   }
 }
 
