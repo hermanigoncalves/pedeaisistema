@@ -248,7 +248,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     if (!isOpen) return;
     const fetchWindowsPrinters = async () => {
       try {
-        const res = await fetch('http://localhost:3001/api/printers');
+        const agentUrl = (import.meta.env.VITE_PRINT_AGENT_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001').replace(/\/$/, '');
+        const res = await fetch(`${agentUrl}/api/printers`);
         if (res.ok) {
           const data = await res.json();
           if (data.success) {
@@ -259,7 +260,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
           }
         }
       } catch (e) {
-        console.log('[SettingsModal] Agente local não detectado na porta 3001.');
+        console.log('[SettingsModal] Agente de impressão não detectado.');
         setIsAgentConnected(false);
       }
     };

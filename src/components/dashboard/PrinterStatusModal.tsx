@@ -26,6 +26,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
+const PRINT_AGENT_URL = import.meta.env.VITE_PRINT_AGENT_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+
 interface PrinterStatusModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -73,7 +75,8 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
   const checkAgentHealth = React.useCallback(async () => {
     setIsChecking(true);
     try {
-      const res = await fetch('http://localhost:3001/api/printers', { signal: AbortSignal.timeout(3000) });
+      const agentUrl = PRINT_AGENT_URL.replace(/\/$/, '');
+      const res = await fetch(`${agentUrl}/api/printers`, { signal: AbortSignal.timeout(3000) });
       if (res.ok) {
         setIsAgentConnected(true);
       } else {
@@ -145,7 +148,8 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
       } else {
         // Fallback: se o agente Node local responder, tenta via API local
         if (isAgentConnected) {
-          const res = await fetch('http://localhost:3001/api/test-print', {
+          const agentUrl = PRINT_AGENT_URL.replace(/\/$/, '');
+          const res = await fetch(`${agentUrl}/api/test-print`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -160,7 +164,7 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
             return;
           }
         }
-        toast.error(`Erro ao imprimir em ${printer.name}. Verifique a impressora.`);
+        toast.error(`Erro ao imprimir em ${printer.name}. Verifique se o Agente de Impressão (Node.js) está rodando.`);
       }
     } catch (err: any) {
       console.error('Erro no teste de impressão:', err);
