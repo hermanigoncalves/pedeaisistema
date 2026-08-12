@@ -264,8 +264,9 @@ function createPrintersList(station) {
         ? `tcp://${dbPrinter.ip}:${dbPrinter.porta || 9100}`
         : dbPrinter.usb_path;
 
-      const is58mm = dbPrinter.nome.toLowerCase().includes('58mm');
-      const printerCols = is58mm ? 32 : 42; // 32 para 58mm, 42 para 80mm
+      const nameLower = (dbPrinter.nome || '').toLowerCase();
+      const is58mm = nameLower.includes('58') || nameLower.includes('bt') || nameLower.includes('bluetooth') || nameLower.includes('mtp') || nameLower.includes('goojprt') || nameLower.includes('pt-210') || nameLower.includes('rpp300');
+      const printerCols = is58mm ? 32 : 42; // 32 para impressoras Bluetooth 58mm, 42 para 80mm
 
       return {
         name: dbPrinter.nome,
