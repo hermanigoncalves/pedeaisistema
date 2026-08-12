@@ -213,19 +213,62 @@ async function loadPrintersFromDb() {
     if (error) throw error;
 
     activePrinters = data || [];
-    console.log(`[PrintAgent] 🖨️  ${activePrinters.length} impressora(s) ativa(s) carregada(s) do banco de dados:`);
-    activePrinters.forEach(p => {
-      if (p.conexao === 'tcp') {
-        console.log(`   - [${p.tipo.toUpperCase()}] ${p.nome}: Rede IP ${p.ip}:${p.porta || 9100}`);
-      } else if (p.conexao === 'usb') {
-        console.log(`   - [${p.tipo.toUpperCase()}] ${p.nome}: Dispositivo/USB ${p.usb_path}`);
-      }
-    });
+    console.log(`\n============================================================`);
+    console.log(`[PrintAgent] 🖨️ IMPRESSORAS CADASTRADAS NO SISTEMA PEDEAI (${activePrinters.length}):`);
+    console.log(`============================================================`);
 
-    listSystemPrinters();
+    if (activePrinters.length === 0) {
+      console.log('[PrintAgent] ⚠️ Nenhuma impressora cadastrada no Sistema PedeAí para este restaurante.');
+      console.log('[PrintAgent] 💡 Dica: Cadastre a sua impressora no Dashboard > Configurações > Impressoras.');
+    } else {
+      await verifySystemPrinters();
+    }
+    console.log(`============================================================\n`);
   } catch (err) {
     console.error('[PrintAgent] ❌ Erro ao carregar impressoras do Supabase:', err.message);
   }
+}
+
+/**
+ * Testa e verifica a conectividade real de cada impressora cadastrada no Sistema PedeAí.
+ */
+async function verifySystemPrinters() {
+  for (const p of activePrinters) {
+    const isTcp = p.conexao === 'tcp';
+    if (isTcp && p.ip) {
+      const isOnline = await testTcpPrinterConnection(p.ip, p.porta || 9100);
+      if (isOnline) {
+        console.log(`   ✅ [${p.tipo.toUpperCase()}] "${p.nome}" (IP ${p.ip}:${p.porta || 9100}) -> ONLINE E PRONTA NO SISTEMA`);
+      } else {
+        console.log(`   ❌ [${p.tipo.toUpperCase()}] "${p.nome}" (IP ${p.ip}:${p.porta || 9100}) -> OFFLINE / INDISPONIVEL NA REDE`);
+      }
+    } else if (p.usb_path || p.nome) {
+      console.log(`   ✅ [${p.tipo.toUpperCase()}] "${p.nome}" (${p.conexao === 'usb' ? 'USB/Bluetooth: ' + (p.usb_path || p.nome) : 'Sistema'}) -> CADASTRADA E PRONTA NO SISTEMA`);
+    }
+  }
+}
+
+function testTcpPrinterConnection(host, port = 9100, timeoutMs = 2000) {
+  return new Promise((resolve) => {
+    const net = require('net');
+    const socket = new net.Socket();
+    let done = false;
+
+    socket.setTimeout(timeoutMs);
+    socket.connect(port, host, () => {
+      done = true;
+      socket.destroy();
+      resolve(true);
+    });
+
+    socket.on('error', () => {
+      if (!done) { done = true; socket.destroy(); resolve(false); }
+    });
+
+    socket.on('timeout', () => {
+      if (!done) { done = true; socket.destroy(); resolve(false); }
+    });
+  });
 }
 
 /**
