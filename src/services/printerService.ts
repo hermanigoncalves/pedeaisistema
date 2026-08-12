@@ -46,25 +46,25 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 /**
  * Retorna o nome do primeiro dispositivo Bluetooth conectado (compatibilidade legada)
  */
-export const getConnectedDeviceName = (): string | null => {
+export function getConnectedDeviceName(): string | null {
   const activeIds = Object.keys(activeBluetoothConnections);
   if (activeIds.length > 0) {
     const conn = activeBluetoothConnections[activeIds[0]];
     return conn?.device?.name || 'Impressora Bluetooth';
   }
   return null;
-};
+}
 
 // Retorna se uma impressora específica está conectada fisicamente
-export const isPrinterConnected = (printerId: string): boolean => {
+export function isPrinterConnected(printerId: string): boolean {
   return !!activeBluetoothConnections[printerId]?.characteristic;
-};
+}
 
 // Retorna o nome do dispositivo de uma impressora específica
-export const getConnectedDeviceNameForPrinter = (printerId: string): string | null => {
+export function getConnectedDeviceNameForPrinter(printerId: string): string | null {
   const conn = activeBluetoothConnections[printerId];
   return conn?.device?.name || null;
-};
+}
 
 // Comandos ESC/POS básicos
 const ESC = '\x1B';

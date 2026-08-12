@@ -35,7 +35,7 @@ export const PrinterStatusModal: React.FC<PrinterStatusModalProps> = ({
   const [isAgentConnected, setIsAgentConnected] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(false);
 
-  const btDeviceName = getConnectedDeviceName();
+  const btDeviceName = typeof getConnectedDeviceName === 'function' ? getConnectedDeviceName() : null;
   const allPrinters = React.useMemo(() => {
     const combined: Printer[] = [...dbPrinters];
     const dbIds = new Set(dbPrinters.map(p => p.id));
