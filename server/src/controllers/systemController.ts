@@ -51,4 +51,56 @@ export function registerSystemRoutes(app: FastifyInstance) {
     const printers = getSystemPrinters();
     return reply.send({ printers });
   });
+
+  /**
+   * GET /api/system/download-print-agent
+   * Retorna os arquivos do Agente de Impressão Windows pré-configurados para um restauranteId.
+   */
+  app.get('/api/system/download-print-agent', async (request, reply) => {
+    const { restauranteId } = request.query as { restauranteId?: string };
+
+    const envContent = `RESTAURANTE_ID=${restauranteId || ''}
+SUPABASE_URL=${process.env.SUPABASE_URL || 'https://gpsbydlnbkbofbhmhuvp.supabase.co'}
+SUPABASE_SERVICE_ROLE_KEY=${process.env.SUPABASE_SERVICE_ROLE_KEY || ''}
+`;
+
+    const batContent = `@echo off
+title Agente de Impressao PedeAi -- Windows
+cls
+echo ============================================================
+echo      AGENTE DE IMPRESSAO PEDEAI -- SALAO & DELIVERY
+echo ============================================================
+echo.
+if not exist node_modules (
+    echo [1/2] Instalando dependencias de impressao...
+    call npm install --no-audit --no-fund
+)
+echo [2/2] Conectando impressora fisica ao PedeAi...
+node index.js
+pause
+`;
+
+    return reply.send({
+      success: true,
+      restauranteId: restauranteId || null,
+      files: {
+        '.env': envContent,
+        'iniciar-impressora.bat': batContent,
+        'package.json': JSON.stringify({
+          name: "pedeai-print-agent",
+          version: "1.0.0",
+          description: "Agente de impressão local para o PedeAí",
+          main: "index.js",
+          scripts: { start: "node index.js" },
+          dependencies: {
+            "@supabase/supabase-js": "^2.45.0",
+            "dotenv": "^16.4.5",
+            "node-thermal-printer": "^4.4.0",
+            "ws": "^8.21.0"
+          }
+        }, null, 2)
+      },
+      instructions: "Baixe a pasta print-agent, salve o arquivo .env e execute iniciar-impressora.bat no seu PC Windows."
+    });
+  });
 }
