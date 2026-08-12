@@ -653,8 +653,8 @@ function parseItens(pedido) {
 
 // ─── Classificação dos itens por estação ──────────────────────────────────────
 
-const KITCHEN_KEYWORDS = ['pizza', 'massa', 'macarrao', 'prato', 'sopa', 'salada', 'carne', 'frango', 'peixe', 'burger', 'lanche', 'entrada', 'carbonara'];
-const BAR_KEYWORDS = ['cerveja', 'chopp', 'drink', 'cocktail', 'agua', 'suco', 'refrigerante', 'vinho', 'whisky', 'vodka', 'caipirinha', 'dose'];
+const KITCHEN_KEYWORDS = ['pizza', 'massa', 'macarrao', 'prato', 'sopa', 'salada', 'carne', 'frango', 'peixe', 'burger', 'hamburguer', 'lanche', 'entrada', 'carbonara', 'calabresa', 'margherita', 'porcao', 'batata', 'pao', 'sobremesa', 'doce', 'pudim', 'petit', 'torta'];
+const BAR_KEYWORDS = ['cerveja', 'chopp', 'drink', 'cocktail', 'coquetel', 'agua', 'suco', 'refrigerante', 'refri', 'soda', 'lemonade', 'tangerina', 'vinho', 'whisky', 'vodka', 'gin', 'caipirinha', 'dose', 'lata', 'garrafa', 'jarra', 'cha', 'energetico', 'red bull', 'h2oh', 'tonica'];
 
 /**
  * Classifica a estação de preparo de um item do pedido.
