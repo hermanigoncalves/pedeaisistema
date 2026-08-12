@@ -181,16 +181,15 @@ export function contaSolicitadaTool(
             .catch((err: any) => console.error(`[Conta_Solicitada] ❌ Erro ao enviar mensagem de conta vazia:`, err.message));
         }
 
-        // 6. Garante que o cliente seja liberado da mesa na tabela de check-ins (mesa_atual = '0' e Status = 'Inativo')
-        await supabase.client
-          .from('Usuários')
-          .update({ mesa_atual: '0', Status: 'Inativo' })
-          .eq('id_restaurante', userData.id_restaurante)
-          .eq('telefone', userData.telefone);
-
         return JSON.stringify({
           success: true,
-          message: `Conta solicitada! ${updatedPedidos.length} pedido(s) atualizados para pagamento_pendente. Resumo enviado via WhatsApp e liberado check-in.`,
+          mesa: userData.mesa_atual,
+          pedidosAtualizados: updatedPedidos.length,
+          subtotal: subtotal.toFixed(2),
+          taxaServico: (subtotal * taxaServicoPercentage / 100).toFixed(2),
+          totalFinal: (subtotal + (subtotal * taxaServicoPercentage / 100)).toFixed(2),
+          itens: itemsToProcess.map(i => ({ nome: i.nome, quantidade: i.quantidade, preco: i.preco, total: i.quantidade * i.preco })),
+          message: `Conta solicitada com sucesso para Mesa ${userData.mesa_atual}! ${updatedPedidos.length} pedido(s) atualizados para pagamento_pendente.`
         });
       } catch (err: any) {
         console.error('[Conta_Solicitada] Erro geral na tool:', err.message);
