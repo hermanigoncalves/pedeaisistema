@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import Logo from '@/components/Logo';
 import SettingsModal from './SettingsModal';
 import PrinterStatusModal from './PrinterStatusModal';
+import { getConnectedDeviceName } from '@/services/printerService';
 
 interface TopbarProps {}
 
@@ -28,7 +29,7 @@ const Topbar: React.FC<TopbarProps> = () => {
   const [isPrinterStatusOpen, setIsPrinterStatusOpen] = useState(false);
   const [isOnline] = useState(true);
 
-  const btPrinterName = getConnectedDeviceName();
+  const btPrinterName = typeof getConnectedDeviceName === 'function' ? getConnectedDeviceName() : null;
   const localPrinters = settings.printers?.filter((p: any) => p.isActive) || [];
   const activePrinters = dbPrinters.filter(p => p.isActive);
   const totalActiveCount = Math.max(activePrinters.length, localPrinters.length, btPrinterName ? 1 : 0);
