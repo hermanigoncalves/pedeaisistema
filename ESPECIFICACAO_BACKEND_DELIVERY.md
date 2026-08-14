@@ -39,11 +39,11 @@ Sem a necessidade de um aplicativo nativo/web para entregadores, o backend de De
 
 ## 2. Dados e Credenciais de Conexão com o Banco (Supabase)
 
-- **URL do Supabase**: `https://gpsbydlnbkbofbhmhuvp.supabase.co`
-- **Service Role Key (Uso exclusivo no Backend)**:
-  `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdwc2J5ZGxuYmtib2ZiaG1odXZwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MzM5Nzc3MCwiZXhwIjoyMDk4OTczNzcwfQ.11gOTNAy1fVuZ7LlRJgc8eGsK4IrAb_fjJ9mL6CiXqg`
-- **Anon / Publishable Key (Uso público no Frontend se necessário)**:
-  `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdwc2J5ZGxuYmtib2ZiaG1odXZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzOTc3NzAsImV4cCI6MjA5ODk3Mzc3MH0.13ezDWGrO6AKTib_-l7HjqamN_9oI7etpJaoNN4bB7k`
+- **URL do Supabase**: `https://ipcawfdvdwcvrcdbegny.supabase.co`
+- **Chave de Serviço (Service Role)**:
+  `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlwY2F3ZmR2ZHdjdnJjZGJlZ255Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NTQ5Mzc3NiwiZXhwIjoyMTAxMDY5Nzc2fQ.bj7I4qd3vHgmyNpG-o95N46k8MLTy3UnupGoR10yDgg`
+- **Chave Anônima (Anon Key)**:
+  `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlwY2F3ZmR2ZHdjdnJjZGJlZ255Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0OTM3NzYsImV4cCI6MjEwMTA2OTc3Nn0.qx4WnUwQnWoIOmpie5bBjwVXJzO_XF2Zk5_l_RsF2No`
 
 ---
 
@@ -54,13 +54,10 @@ Copie este arquivo `.env` para a raiz do seu novo projeto backend:
 ```env
 # Configurações do Servidor
 PORT=3001
-HOST=0.0.0.0
 NODE_ENV=production
-
-# Supabase (Banco de Dados Central)
-SUPABASE_URL=https://gpsbydlnbkbofbhmhuvp.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdwc2J5ZGxuYmtib2ZiaG1odXZwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MzM5Nzc3MCwiZXhwIjoyMDk4OTczNzcwfQ.11gOTNAy1fVuZ7LlRJgc8eGsK4IrAb_fjJ9mL6CiXqg
-SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdwc2J5ZGxuYmtib2ZiaG1odXZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzOTc3NzAsImV4cCI6MjA5ODk3Mzc3MH0.13ezDWGrO6AKTib_-l7HjqamN_9oI7etpJaoNN4bB7k
+SUPABASE_URL=https://ipcawfdvdwcvrcdbegny.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlwY2F3ZmR2ZHdjdnJjZGJlZ255Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NTQ5Mzc3NiwiZXhwIjoyMTAxMDY5Nzc2fQ.bj7I4qd3vHgmyNpG-o95N46k8MLTy3UnupGoR10yDgg
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlwY2F3ZmR2ZHdjdnJjZGJlZ255Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0OTM3NzYsImV4cCI6MjEwMTA2OTc3Nn0.qx4WnUwQnWoIOmpie5bBjwVXJzO_XF2Zk5_l_RsF2No
 
 # Provedor de WhatsApp (WAHA)
 WHATSAPP_PROVIDER=waha
@@ -167,8 +164,8 @@ export async function sendWahaText(
 ```typescript
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://gpsbydlnbkbofbhmhuvp.supabase.co';
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdwc2J5ZGxuYmtib2ZiaG1odXZwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MzM5Nzc3MCwiZXhwIjoyMDk4OTczNzcwfQ.11gOTNAy1fVuZ7LlRJgc8eGsK4IrAb_fjJ9mL6CiXqg';
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ipcawfdvdwcvrcdbegny.supabase.co';
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlwY2F3ZmR2ZHdjdnJjZGJlZ255Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NTQ5Mzc3NiwiZXhwIjoyMTAxMDY5Nzc2fQ.bj7I4qd3vHgmyNpG-o95N46k8MLTy3UnupGoR10yDgg';
 
 export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: {

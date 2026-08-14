@@ -60,7 +60,7 @@ export function registerSystemRoutes(app: FastifyInstance) {
     const { restauranteId } = request.query as { restauranteId?: string };
 
     const envContent = `RESTAURANTE_ID=${restauranteId || ''}
-SUPABASE_URL=${process.env.SUPABASE_URL || 'https://gpsbydlnbkbofbhmhuvp.supabase.co'}
+SUPABASE_URL=${process.env.SUPABASE_URL || 'https://ipcawfdvdwcvrcdbegny.supabase.co'}
 SUPABASE_SERVICE_ROLE_KEY=${process.env.SUPABASE_SERVICE_ROLE_KEY || ''}
 `;
 
