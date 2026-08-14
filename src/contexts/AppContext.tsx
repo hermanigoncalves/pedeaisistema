@@ -969,7 +969,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   }, [settings.totalTables]);
 
-  // Login via servidor Backend Fastify (bcrypt)
+  // Login via servidor Backend Fastify ou fallback direto via Supabase Client (Vercel Standalone)
   const login = useCallback(async (email: string, password: string): Promise<AuthResult> => {
     // Validate input
     const validation = validateLoginInput(email, password);
@@ -978,27 +978,53 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return { success: false, error: errorMessage };
     }
 
+    const trimmedEmail = email.trim().toLowerCase();
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
+
+    if (backendUrl) {
+      try {
+        const response = await fetch(`${backendUrl}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: trimmedEmail, password }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.restauranteId) {
+            localStorage.setItem('pedeai_restaurant_id', data.restauranteId);
+            setRestaurantId(data.restauranteId);
+            return { success: true };
+          }
+          return { success: false, error: data.error || 'Email ou senha inválidos' };
+        }
+      } catch (err) {
+        console.warn('[Auth] Backend indisponível, usando fallback Supabase direto...');
+      }
+    }
+
+    // Fallback direto via Supabase (para Vercel / ambiente estático)
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
-      const response = await fetch(`${backendUrl}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+      const { data, error } = await supabase
+        .from('Restaurantes')
+        .select('id, email, senha')
+        .eq('email', trimmedEmail)
+        .maybeSingle();
 
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        return { success: false, error: data.error || 'Email ou senha inválidos' };
+      if (error || !data) {
+        return { success: false, error: 'Email ou senha inválidos' };
       }
 
-      // Store session in localStorage
-      localStorage.setItem('pedeai_restaurant_id', data.restauranteId);
-      setRestaurantId(data.restauranteId);
+      if (data.senha !== password) {
+        return { success: false, error: 'Email ou senha inválidos' };
+      }
 
+      localStorage.setItem('pedeai_restaurant_id', data.id);
+      setRestaurantId(data.id);
       return { success: true };
     } catch (err) {
-      return { success: false, error: 'Erro de conexão com o servidor. Tente novamente.' };
+      console.error('[Auth] Erro ao autenticar no Supabase:', err);
+      return { success: false, error: 'Erro de conexão com o banco de dados. Tente novamente.' };
     }
   }, []);
 
@@ -1008,18 +1034,45 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const adminLogin = useCallback(async (email: string, password: string): Promise<AuthResult> => {
+    const trimmedEmail = email.trim().toLowerCase();
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
+
+    if (backendUrl) {
+      try {
+        const response = await fetch(`${backendUrl}/api/auth/admin-login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: trimmedEmail, password }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            localStorage.setItem('pedeai_admin_auth', 'true');
+            setIsAdminAuthenticated(true);
+            return { success: true };
+          }
+          return { success: false, error: data.error || 'Credenciais de administrador inválidas' };
+        }
+      } catch (err) {
+        console.warn('[Auth] Backend indisponível para admin-login, usando fallback Supabase direto...');
+      }
+    }
+
+    // Fallback direto via Supabase (para Vercel / ambiente estático)
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
-      const response = await fetch(`${backendUrl}/api/auth/admin-login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+      const { data, error } = await supabase
+        .from('admin_acessos')
+        .select('*')
+        .eq('email', trimmedEmail)
+        .maybeSingle();
 
-      const data = await response.json();
+      if (error || !data) {
+        return { success: false, error: 'Credenciais de administrador inválidas' };
+      }
 
-      if (!response.ok || !data.success) {
-        return { success: false, error: data.error || 'Credenciais de administrador inválidas' };
+      if (data.senha !== password) {
+        return { success: false, error: 'Credenciais de administrador inválidas' };
       }
 
       localStorage.setItem('pedeai_admin_auth', 'true');

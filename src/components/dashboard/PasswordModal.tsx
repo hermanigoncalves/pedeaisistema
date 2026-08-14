@@ -45,21 +45,47 @@ const PasswordModal: React.FC<PasswordModalProps> = ({
       }
 
       const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
-      const response = await fetch(`${backendUrl}/api/auth/verify-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ restauranteId, password }),
-      });
+      if (backendUrl) {
+        try {
+          const response = await fetch(`${backendUrl}/api/auth/verify-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ restauranteId: restaurantId, password }),
+          });
 
-      const resData = await response.json();
+          if (response.ok) {
+            const resData = await response.json();
+            if (resData.success) {
+              toast.success('Acesso liberado!');
+              setPassword('');
+              onSuccess();
+              onClose();
+              return;
+            } else {
+              setError(resData.error || 'Senha incorreta');
+              return;
+            }
+          }
+        } catch (fetchErr) {
+          console.warn('[PasswordModal] Backend indisponível, usando fallback Supabase direto...');
+        }
+      }
 
-      if (response.ok && resData.success) {
+      // Fallback direto via Supabase
+      const { data, error: restErr } = await supabase
+        .from('Restaurantes')
+        .select('senha')
+        .eq('id', restaurantId)
+        .maybeSingle();
+
+      if (!restErr && data && data.senha === password) {
         toast.success('Acesso liberado!');
         setPassword('');
         onSuccess();
         onClose();
+        return;
       } else {
-        setError(resData.error || 'Senha incorreta');
+        setError('Senha incorreta');
       }
     } catch (err) {
       setError('Erro ao verificar senha');
