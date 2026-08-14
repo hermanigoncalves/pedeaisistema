@@ -1,0 +1,72 @@
+{
+  "protocol": "Google Mantis 10-Step Audit & Hallmark 57-Gates",
+  "project": "Sistema PedeAí",
+  "date": "2026-08-14",
+  "audit_plan": [
+    {
+      "step": 1,
+      "name": "Audit Core Context & State Management",
+      "target_files": [
+        "src/contexts/AppContext.tsx",
+        "src/integrations/supabase/client.ts"
+      ],
+      "verification": "TypeScript validation + Static Analysis"
+    },
+    {
+      "step": 2,
+      "name": "Audit Frontend Pages & UI Flows",
+      "target_files": [
+        "src/pages/Index.tsx",
+        "src/pages/Login.tsx",
+        "src/pages/AdminDashboard.tsx",
+        "src/pages/OperationPage.tsx",
+        "src/pages/Checkin.tsx",
+        "src/pages/ConversasPage.tsx",
+        "src/pages/AnalyticsPage.tsx"
+      ],
+      "verification": "Hallmark 57-Gates (Loading, Empty, Error, Disabled States) + WCAG"
+    },
+    {
+      "step": 3,
+      "name": "Audit Frontend Modals & Realtime Hooks",
+      "target_files": [
+        "src/components/dashboard/SettingsModal.tsx",
+        "src/components/dashboard/PasswordModal.tsx",
+        "src/components/dashboard/ConversationsView.tsx",
+        "src/components/dashboard/PrinterStatusModal.tsx",
+        "src/components/kanban/OrderCard.tsx",
+        "src/hooks/usePedidos.ts",
+        "src/hooks/useMensagens.ts",
+        "src/hooks/useProdutos.ts",
+        "src/hooks/useCategorias.ts",
+        "src/hooks/useEstacoes.ts",
+        "src/hooks/useImpressoras.ts",
+        "src/hooks/useRestaurant.ts"
+      ],
+      "verification": "Realtime cleanup, memory leaks, unhandled exceptions"
+    },
+    {
+      "step": 4,
+      "name": "Audit Backend Fastify & Controllers",
+      "target_files": [
+        "server/src/index.ts",
+        "server/src/controllers/authController.ts",
+        "server/src/controllers/webhookController.ts",
+        "server/src/controllers/closeBillController.ts",
+        "server/src/controllers/stockAlertController.ts",
+        "server/src/controllers/systemController.ts",
+        "server/src/agents/pedeaiAgent.ts"
+      ],
+      "verification": "Security, SQL/Query parameters, error handling, phone normalization"
+    },
+    {
+      "step": 5,
+      "name": "Audit Print Agent & Hardware Integration",
+      "target_files": [
+        "src/services/printerService.ts",
+        "print-agent/index.js"
+      ],
+      "verification": "TCP socket timeout handling, buffer overflow, ESC/POS alignment"
+    }
+  ]
+}

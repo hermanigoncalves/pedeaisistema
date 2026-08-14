@@ -1,0 +1,42 @@
+[
+  {
+    "id": "AUTH-01",
+    "category": "Security & Resiliency",
+    "component": "src/contexts/AppContext.tsx & src/components/dashboard/PasswordModal.tsx",
+    "description": "Autenticação em ambiente serverless Vercel falhava com 405 Method Not Allowed ao tentar fazer POST para /api/auth/ sem rota local. Corrigido com fallback direto ao Supabase PostgREST.",
+    "severity": "P0",
+    "status": "Fixed / Verified"
+  },
+  {
+    "id": "REALTIME-01",
+    "category": "Realtime & Cleanup",
+    "component": "src/hooks/usePedidos.ts & src/hooks/useMensagens.ts",
+    "description": "Subscrições Supabase Realtime usam canais únicos com cleanup adequado no useEffect (removeChannel). Deduplicação de pedidos por ID implementada para evitar repetições no Kanban.",
+    "severity": "P1",
+    "status": "Validated Clean"
+  },
+  {
+    "id": "MULTI-TENANT-01",
+    "category": "Multi-Tenancy & Data Isolation",
+    "component": "server/src/controllers/closeBillController.ts & server/src/agents/tools/contaSolicitadaTool.ts",
+    "description": "Isolamento de Restaurante: Queries filtram obrigatoriamente por restaurante_id. Modo de cobrança respeita 'comanda' (fechamento individual) vs 'mesa' (fechamento unificado e pergunta de split).",
+    "severity": "P0",
+    "status": "Validated Clean"
+  },
+  {
+    "id": "PRINT-01",
+    "category": "Hardware & Failover",
+    "component": "src/services/printerService.ts & print-agent/index.js",
+    "description": "Driver de impressão suporta triplo canal: Agente Windows TCP/USB, aplicativo RawBT Android e impressão nativa do navegador (Browser Print Fallback).",
+    "severity": "P1",
+    "status": "Validated Clean"
+  },
+  {
+    "id": "HALLMARK-01",
+    "category": "UI/UX & Quality Gates",
+    "component": "src/pages/OperationPage.tsx & src/components/dashboard/SettingsModal.tsx",
+    "description": "Completude de estados de UI: Visualização com badges de status, contadores em tempo real, suporte responsivo para tablets/mobile e modais com proteção de senha.",
+    "severity": "P2",
+    "status": "Validated Clean"
+  }
+]

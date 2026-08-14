@@ -1,0 +1,47 @@
+[
+  {
+    "id": "AUTH-01",
+    "score": 9.8,
+    "severity": "P0 (Crítico)",
+    "file_location": "src/contexts/AppContext.tsx:982-1045",
+    "impact": "Bloqueava o login do admin e estabelecimentos quando o frontend rodava na Vercel sem proxy de backend.",
+    "mitigation_applied": "Implementado fallback resiliente que autentica direto contra o Supabase quando backendUrl não responde ou retorna 405.",
+    "blast_radius": "Global (Login/Sessão)"
+  },
+  {
+    "id": "MULTI-TENANT-01",
+    "score": 9.2,
+    "severity": "P0 (Crítico)",
+    "file_location": "server/src/controllers/closeBillController.ts:40-89",
+    "impact": "Garantia de que restaurantes operando em modo comanda (ex: San Pio) não fecham pedidos de outras comandas indevidamente.",
+    "mitigation_applied": "Filtro de restaurante_id e usuario_telefone aplicados estritamente em todas as operações de banco.",
+    "blast_radius": "Módulo Financeiro / Fechamento de Mesas"
+  },
+  {
+    "id": "REALTIME-01",
+    "score": 7.8,
+    "severity": "P1 (Alto)",
+    "file_location": "src/hooks/usePedidos.ts:173-215",
+    "impact": "Prevenção de memory leaks e duplicação de cards de pedidos na cozinha.",
+    "mitigation_applied": "Canais nomeados únicos por tabela e deduplicação explícita por ID antes do setState.",
+    "blast_radius": "Módulo KDS / Kanban"
+  },
+  {
+    "id": "PRINT-01",
+    "score": 7.5,
+    "severity": "P1 (Alto)",
+    "file_location": "src/services/printerService.ts:1-120",
+    "impact": "Disponibilidade contínua de impressão térmica em cozinhas com instabilidade de rede.",
+    "mitigation_applied": "Fallback transparente para RawBT ou impressão pelo navegador se o agente de impressão estiver offline.",
+    "blast_radius": "Hardware / Impressão"
+  },
+  {
+    "id": "HALLMARK-01",
+    "score": 5.0,
+    "severity": "P2 (Médio)",
+    "file_location": "src/pages/OperationPage.tsx:37-80",
+    "impact": "Experiência de uso no salão e delivery com alternância suave de abas e feedback sonoro/visual.",
+    "mitigation_applied": "Layout responsivo com suporte a KDS dedicado por estação de preparo.",
+    "blast_radius": "Interface com o Usuário"
+  }
+]
