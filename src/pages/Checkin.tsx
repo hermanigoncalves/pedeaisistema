@@ -13,10 +13,8 @@ import {
     MapPin,
     CheckCircle2,
     UtensilsCrossed,
-    Sparkles,
 } from 'lucide-react';
-
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://polis-pedeai-backend.8vsz2a.easypanel.host';
+import { apiFetch } from '@/lib/api-config';
 
 const Checkin: React.FC = () => {
     const [searchParams] = useSearchParams();
@@ -174,9 +172,8 @@ const Checkin: React.FC = () => {
 
             // 2. Chamar webhook de primeira mensagem (saudação via WhatsApp)
             try {
-                const webhookResponse = await fetch(`${BACKEND_URL}/webhook/leadpedeaichegou`, {
+                const webhookResponse = await apiFetch('/webhook/leadpedeaichegou', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         nome: nome.trim(),
                         telefone: phoneDigits,
