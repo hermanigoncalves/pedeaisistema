@@ -166,7 +166,7 @@ export function contaSolicitadaTool(
           const msgClienteNome = userData.nome || 'Cliente';
           const divisaoLine = divisoes ? `👥 Conta dividida por ${divisoes} pessoas: *R$ ${(totalFinal / divisoes).toFixed(2).replace('.', ',')} por pessoa*\n\n` : '';
           
-          const mensagem = `Olá, ${msgClienteNome}! 👋\n\nAqui está o resumo da sua conta da *Mesa ${userData.mesa_atual}*.\n\n---\n📋 *RESUMO DO CONSUMO*\n${itensFormatados}\n\n---\n💰 *DETALHES DA CONTA*\nSubtotal: R$ ${subtotal.toFixed(2).replace('.', ',')}\n${couvertLine}${taxaLine}*Total Final: R$ ${totalFinal.toFixed(2).replace('.', ',')}*\n\n${divisaoLine}Por favor, dirija-se ao caixa para realizar o pagamento. Agradecemos a preferência! 😊✨`;
+          const mensagem = `Olá, ${msgClienteNome}! 👋\n\nAqui está o resumo da sua conta da *Mesa ${userData.mesa_atual}*.\n\n---\n📋 *RESUMO DO CONSUMO*\n${itensFormatados}\n\n---\n💰 *DETALHES DA CONTA*\nSubtotal: R$ ${subtotal.toFixed(2).replace('.', ',')}\n${couvertLine}${taxaLine}*Total Final: R$ ${totalFinal.toFixed(2).replace('.', ',')}*\n\n${divisaoLine}🎉 *Experiência PedeAI concluída!*\n\nSua conta já foi paga e encerrada. ✅\n\nAgradecemos muito por participar dessa experiência e conhecer uma nova forma de fazer pedidos pelo WhatsApp. 💚\n\nPedeAI e ABRASEL agradecem a sua presença!\n\nEsperamos que tenha gostado da experiência. Até a próxima! 🚀`;
 
           // Enviar via WhatsApp em background
           evolution.sendText(userData.id_restaurante, userData.telefone, mensagem)

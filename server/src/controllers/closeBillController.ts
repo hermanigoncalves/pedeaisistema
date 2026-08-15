@@ -125,7 +125,7 @@ export function registerCloseBillRoutes(app: FastifyInstance) {
           ? `Taxa de Serviço: R$ ${parseFloat(payload.taxa).toFixed(2).replace('.', ',')}\n`
           : '';
 
-        const mensagem = `Olá, ${payload.nome}! 👋\n\nSua conta da *Mesa ${payload.numero_mesa}* foi fechada com sucesso.\nEsperamos que sua experiência tenha sido incrível! 🥂\n\n---\n📋 *RESUMO DO CONSUMO*\n${payload.itens}\n\n---\n💰 *DETALHES DA CONTA*\nSubtotal: R$ ${parseFloat(payload.subtotal).toFixed(2).replace('.', ',')}\n${couvertLine}${taxaLine}*Total Final: R$ ${parseFloat(payload.total).toFixed(2).replace('.', ',')}*\n\nAgradecemos a preferência e esperamos te ver em breve!\nTenha um excelente dia! 😊✨`;
+        const mensagem = `Olá, ${payload.nome}! 👋\n\n🎉 *Experiência PedeAI concluída!*\n\nSua conta já foi paga e encerrada. ✅\n\n---\n📋 *RESUMO DO CONSUMO*\n${payload.itens}\n\n---\n💰 *DETALHES DA CONTA*\nSubtotal: R$ ${parseFloat(payload.subtotal).toFixed(2).replace('.', ',')}\n${couvertLine}${taxaLine}*Total Final: R$ ${parseFloat(payload.total).toFixed(2).replace('.', ',')}*\n\nAgradecemos muito por participar dessa experiência e conhecer uma nova forma de fazer pedidos pelo WhatsApp. 💚\n\nPedeAI e ABRASEL agradecem a sua presença!\n\nEsperamos que tenha gostado da experiência. Até a próxima! 🚀`;
 
         evolution.sendText(restauranteId, payload.telefone, mensagem)
           .then(() => console.log(`[CloseBill] ✅ Mensagem de conta enviada para ${payload.nome} (Restaurante: ${restauranteId})`))

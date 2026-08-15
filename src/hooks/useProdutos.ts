@@ -79,20 +79,44 @@ export const useProdutos = (restaurantId: string | null) => {
         estacao: produto.estacao || 'bar',
       });
 
-      const { data, error } = await supabase
+      const payload = {
+        restaurante_id: restaurantId,
+        nome: produto.nome.trim(),
+        preco: precoStr,
+        categoria: produto.categoria || 'Geral',
+        estacao: produto.estacao || 'bar',
+        estoque: produto.estoque !== undefined ? Number(produto.estoque) : 0,
+        estoque_minimo: produto.estoque_minimo !== undefined ? Number(produto.estoque_minimo) : 10,
+        descricao: produto.descricao || '',
+        ativo: produto.ativo ?? true,
+      };
+
+      let { data, error } = await supabase
         .from('Produtos')
-        .insert({
-          restaurante_id: restaurantId,
-          nome: produto.nome.trim(),
-          preco: precoStr,
-          categoria: produto.categoria || 'Geral',
-          estacao: produto.estacao || 'bar',
-          estoque: produto.estoque !== undefined ? Number(produto.estoque) : 0,
-          estoque_minimo: produto.estoque_minimo !== undefined ? Number(produto.estoque_minimo) : 10,
-          descricao: produto.descricao || '',
-          ativo: produto.ativo ?? true,
-        })
+        .insert(payload)
         .select();
+
+      // Se a sequence do Postgres estiver desincronizada (erro 23505 / 409 Conflict), calcula max(id) + 1
+      if (error && (error.code === '23505' || error.message?.includes('duplicate key') || error.message?.includes('violates unique constraint'))) {
+        console.warn('[addProduto] Sequence desincronizada detectada. Calculando próximo ID manualmente...');
+        const { data: maxRows } = await supabase
+          .from('Produtos')
+          .select('id')
+          .order('id', { ascending: false })
+          .limit(1);
+
+        const nextId = (maxRows && maxRows.length > 0 && maxRows[0].id ? Number(maxRows[0].id) : 0) + 1;
+        const retryResult = await supabase
+          .from('Produtos')
+          .insert({
+            id: nextId,
+            ...payload,
+          })
+          .select();
+
+        data = retryResult.data;
+        error = retryResult.error;
+      }
 
       if (error) {
         console.error('[addProduto] ❌ Supabase Error:', error);
