@@ -13,6 +13,7 @@ import {
     MapPin,
     CheckCircle2,
     UtensilsCrossed,
+    Sparkles,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api-config';
 
