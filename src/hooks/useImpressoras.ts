@@ -32,8 +32,8 @@ export const useImpressoras = (restaurantId: string | null) => {
         .order('nome', { ascending: true });
 
       if (error) {
-        if (error.code === '42P01') {
-          console.warn('[useImpressoras] Tabela Impressoras não existe no banco de dados ainda.');
+        if (error.code === '42P01' || error.message?.includes('Could not find the table') || error.code === 'PGRST204') {
+          // Tabela opcional não criada no Supabase ainda
         } else {
           throw error;
         }

@@ -28,9 +28,8 @@ export const useMacarroes = (restaurantId: string | null) => {
         .order('nome', { ascending: true });
 
       if (error) {
-        // Se a tabela ainda não existir, o erro vai ser capturado de forma silenciosa
-        if (error.code === '42P01') {
-          console.warn('[useMacarroes] Tabela Macarroes não existe no banco de dados ainda.');
+        if (error.code === '42P01' || error.message?.includes('Could not find the table') || error.code === 'PGRST204') {
+          // Tabela opcional não criada no Supabase ainda
         } else {
           throw error;
         }
