@@ -15,17 +15,7 @@ import { toast } from 'sonner';
 import { printOrder } from '@/lib/print-utils';
 import { printViaWebBluetooth, printToDevice } from '@/services/printerService';
 import { isSystemMarkerItem } from '@/lib/utils';
-
-// Helper centralizado: injeta X-Webhook-Secret em chamadas privadas ao backend
-const apiFetch = (url: string, options: RequestInit = {}) => {
-  const secret = import.meta.env.VITE_WEBHOOK_SECRET as string | undefined;
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string> || {}),
-  };
-  if (secret) headers['x-webhook-secret'] = secret;
-  return fetch(url, { ...options, headers });
-};
+import { apiFetch } from '@/lib/api-config';
 
 export interface Product {
   id: string;
@@ -1828,7 +1818,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       try {
-        const res = await apiFetch(`${import.meta.env.VITE_BACKEND_URL}/webhook/Envia-conta`, {
+        const res = await apiFetch('/webhook/Envia-conta', {
           method: 'POST',
           body: JSON.stringify(webhookPayload)
         });
@@ -1955,7 +1945,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       console.log('[Close Comanda] Enviando conta individual:', webhookPayload);
       toast.info(`Enviando conta de ${customerName} para o WhatsApp...`, { icon: '📲' });
 
-      const res = await apiFetch(`${import.meta.env.VITE_BACKEND_URL}/webhook/Envia-conta`, {
+      const res = await apiFetch('/webhook/Envia-conta', {
         method: 'POST',
         body: JSON.stringify(webhookPayload)
       });

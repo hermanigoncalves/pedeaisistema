@@ -10,7 +10,7 @@ import { supabase } from '../adapters/supabaseAdapter';
  * e opcionalmente envia mensagem de fechamento para o WhatsApp do cliente.
  */
 export function registerCloseBillRoutes(app: FastifyInstance) {
-  app.post('/webhook/Envia-conta', async (request, reply) => {
+  const handleCloseBill = async (request: any, reply: any) => {
     const payload = request.body as CloseBillPayload;
 
     console.log(`[CloseBill] 📥 Fechamento solicitado para Mesa ${payload.numero_mesa} — Telefone: ${payload.telefone}`);
@@ -136,5 +136,10 @@ export function registerCloseBillRoutes(app: FastifyInstance) {
       console.error(`[CloseBill] ❌ Erro no fechamento:`, err.message);
       reply.code(500).send({ error: err.message });
     }
-  });
+  };
+
+  app.post('/webhook/Envia-conta', handleCloseBill);
+  app.post('/webhook/envia-conta', handleCloseBill);
+  app.post('/api/envia-conta', handleCloseBill);
+  app.post('/api/webhook/Envia-conta', handleCloseBill);
 }
