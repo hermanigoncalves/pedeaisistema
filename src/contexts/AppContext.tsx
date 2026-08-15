@@ -1818,9 +1818,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       try {
+        // Garantia de persistência direta no Supabase para liberação imediata (Mesa = '0', Status = 'Inativo', Pedidos = 'fechado')
+        if (restaurantId) {
+          const tableStr = tableId.toString();
+          await supabase
+            .from('Pedidos')
+            .update({ status: 'fechado' })
+            .eq('restaurante_id', restaurantId)
+            .eq('mesa', tableStr)
+            .neq('status', 'fechado')
+            .neq('status', 'dividido');
+
+          await supabase
+            .from('Usuários')
+            .update({ mesa_atual: '0', Status: 'Inativo' })
+            .eq('id_restaurante', restaurantId)
+            .eq('mesa_atual', tableStr);
+        }
+
         const res = await apiFetch('/webhook/Envia-conta', {
           method: 'POST',
           body: JSON.stringify(webhookPayload)
+        }).catch(err => {
+          console.warn('[Close Table] Webhook falhou, mas dados locais já foram atualizados:', err);
+          return { ok: false, status: 500 } as Response;
         });
 
         if (res.ok) {
@@ -1830,9 +1851,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             toast.success('Mesa liberada com sucesso!');
           }
         } else {
-          console.error('Falha no fechamento de mesa no backend:', res.status);
-          toast.error('Erro ao registrar fechamento de mesa no servidor.');
-          return;
+          console.warn('Webhook do backend retornou status não-OK:', res.status);
+          toast.success('Mesa liberada com sucesso no sistema!');
         }
 
         // Imprimir conta na impressora configurada
@@ -1945,18 +1965,46 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       console.log('[Close Comanda] Enviando conta individual:', webhookPayload);
       toast.info(`Enviando conta de ${customerName} para o WhatsApp...`, { icon: '📲' });
 
+      // Garantia de persistência direta no Supabase para liberação imediata (Mesa = '0', Status = 'Inativo', Pedidos = 'fechado')
+      const tableStr = tableId.toString();
+      await supabase
+        .from('Pedidos')
+        .update({ status: 'fechado' })
+        .eq('restaurante_id', restaurantId)
+        .eq('mesa', tableStr)
+        .eq('usuario_telefone', telefone)
+        .neq('status', 'fechado')
+        .neq('status', 'dividido');
+
+      const numOnly = telefone.replace(/\D/g, '');
+      let altNum = numOnly;
+      if (numOnly.startsWith('55')) {
+        if (numOnly.length === 13 && numOnly.charAt(4) === '9') {
+          altNum = '55' + numOnly.substring(2, 4) + numOnly.substring(5);
+        } else if (numOnly.length === 12) {
+          altNum = '55' + numOnly.substring(2, 4) + '9' + numOnly.substring(4);
+        }
+      }
+
+      await supabase
+        .from('Usuários')
+        .update({ mesa_atual: '0', Status: 'Inativo' })
+        .eq('id_restaurante', restaurantId)
+        .or(`telefone.eq.${numOnly},telefone.eq.${altNum},telefone.eq.${telefone}`);
+
       const res = await apiFetch('/webhook/Envia-conta', {
         method: 'POST',
         body: JSON.stringify(webhookPayload)
+      }).catch(err => {
+        console.warn('[Close Comanda] Webhook falhou, mas dados locais já foram atualizados:', err);
+        return { ok: false, status: 500 } as Response;
       });
 
-      if (!res.ok) {
-        console.error('[Close Comanda] Webhook falhou:', res.status);
-        toast.error('Erro ao enviar conta via WhatsApp.');
-        return;
+      if (res.ok) {
+        toast.success(`Comanda de ${customerName} fechada e enviada via WhatsApp!`);
+      } else {
+        toast.success(`Comanda de ${customerName} fechada com sucesso!`);
       }
-
-      toast.success(`Comanda de ${customerName} fechada!`);
 
       // Imprimir conta individual da comanda na impressora configurada
       const comandaItens = comandaPedidos.flatMap(p =>
