@@ -5,7 +5,7 @@
 
 export const BACKEND_URL: string = (
   import.meta.env.VITE_BACKEND_URL ||
-  'https://polis-pedeai-backend.8vsz2a.easypanel.host'
+  'https://polis-polishub.8vsz2a.easypanel.host'
 ).replace(/\/$/, '');
 
 export const apiFetch = async (pathOrUrl: string, options: RequestInit = {}): Promise<Response> => {
