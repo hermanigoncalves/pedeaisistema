@@ -163,7 +163,18 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({ table, onClose }) =
   };
 
   const confirmPaid = async () => {
-    await closeTable(currentTable.id);
+    if (isComandaMode && comandas.length > 0) {
+      const validComandas = comandas.filter(c => c.telefone !== 'mesa');
+      if (validComandas.length > 0) {
+        for (const c of validComandas) {
+          await closeComanda(currentTable.id, c.telefone);
+        }
+      } else {
+        await closeTable(currentTable.id);
+      }
+    } else {
+      await closeTable(currentTable.id);
+    }
     setConfirmPaidOpen(false);
     onClose();
   };

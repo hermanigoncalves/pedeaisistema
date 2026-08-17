@@ -88,15 +88,38 @@ const Checkin: React.FC = () => {
         setIsLoading(true);
 
         try {
-            const phoneDigits = '55' + telefone.replace(/\D/g, '');
+            const numOnly = telefone.replace(/\D/g, '');
+            const phoneDigits = '55' + numOnly;
+            
+            // Gerar variações para busca de usuário existente
+            const candidates = [phoneDigits, numOnly];
+            if (numOnly.length === 11 && numOnly.startsWith('9')) {
+                // (33) 98426-6981 -> sem 9: 3384266981
+                const ddd = numOnly.substring(0, 2);
+                const rest = numOnly.substring(3);
+                candidates.push(`55${ddd}${rest}`, `${ddd}${rest}`);
+            } else if (numOnly.length === 10) {
+                // (33) 8426-6981 -> com 9: 33984266981
+                const ddd = numOnly.substring(0, 2);
+                const rest = numOnly.substring(2);
+                candidates.push(`55${ddd}9${rest}`, `${ddd}9${rest}`);
+            }
 
-            // 1. Verifica se o usuário já existe
-            const { data: existingUser, error: selectError } = await supabase
+            const orClause = Array.from(new Set(candidates))
+                .map(c => `telefone.eq.${c}`)
+                .join(',');
+
+            // 1. Verifica se o usuário já existe no restaurante
+            const { data: userMatches, error: selectError } = await supabase
                 .from('Usuários')
                 .select('*')
-                .eq('telefone', phoneDigits)
                 .eq('id_restaurante', restauranteId)
-                .maybeSingle();
+                .or(orClause)
+                .order('ultimo_checkin', { ascending: false, nullsFirst: false })
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+            const existingUser = userMatches && userMatches.length > 0 ? userMatches[0] : null;
 
             if (selectError) {
                 console.error('[Checkin] Erro ao buscar usuário:', selectError);
@@ -110,7 +133,7 @@ const Checkin: React.FC = () => {
                 const { error: deactivateError } = await supabase
                     .from('Usuários')
                     .update({ Status: 'Inativo' })
-                    .eq('telefone', phoneDigits)
+                    .eq('telefone', existingUser.telefone)
                     .neq('id_restaurante', restauranteId);
 
                 if (deactivateError) {
@@ -136,7 +159,7 @@ const Checkin: React.FC = () => {
                     console.error('[Checkin] Erro ao atualizar usuário:', updateError);
                     throw updateError;
                 }
-                console.log('[Checkin] ✅ Usuário atualizado:', existingUser.id);
+                console.log('[Checkin] ✅ Usuário atualizado na mesa:', existingUser.id, 'Mesa:', mesa);
             } else {
                 // Novo usuário — criar
                 // 1. Inativar qualquer outra sessão desse telefone em outros restaurantes (para garantir caso seja novo em outro restaurante)

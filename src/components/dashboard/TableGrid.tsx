@@ -304,7 +304,22 @@ const TableGrid: React.FC<TableGridProps> = ({ showTitleAndFilters = true }) => 
             <AlertDialogAction
               onClick={async () => {
                 if (confirmPaidTableId) {
-                  await closeTable(confirmPaidTableId);
+                  const targetTable = tables.find(t => t.id === confirmPaidTableId);
+                  if (settings.billingMode === 'comanda' && targetTable?.comandas && targetTable.comandas.length > 0) {
+                    const pedidosPagamento = pedidos.filter(
+                      p => Number(p.mesa) === confirmPaidTableId && p.status === 'pagamento_pendente'
+                    );
+                    const telefonesComConta = [...new Set(pedidosPagamento.map(p => p.usuario_telefone).filter(Boolean))];
+                    if (telefonesComConta.length > 0) {
+                      for (const tel of telefonesComConta) {
+                        await closeComanda(confirmPaidTableId, tel as string);
+                      }
+                    } else {
+                      await closeTable(confirmPaidTableId);
+                    }
+                  } else {
+                    await closeTable(confirmPaidTableId);
+                  }
                 }
                 setConfirmPaidTableId(null);
               }}

@@ -2054,25 +2054,44 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       await refetchPedidos({ silent: true });
       await refetchUsuarios({ silent: true });
 
-      // Verificar se ainda há outros usuários com check-in nessa mesa.
-      // Se não houver, liberar a mesa imediatamente no frontend (sem esperar
-      // o próximo ciclo de sync — evita mesa vermelha após fechar comanda).
+      // Verificar se ainda há outros usuários ativos com check-in nessa mesa.
       const { data: remainingUsers } = await supabase
         .from('Usuários')
-        .select('id')
+        .select('id, telefone, Status')
         .eq('id_restaurante', restaurantId)
-        .eq('mesa_atual', tableId.toString())
-        .neq('telefone', telefone);
+        .eq('mesa_atual', tableId.toString());
 
-      const hasOtherUsers = (remainingUsers?.length ?? 0) > 0;
+      const activeRemaining = (remainingUsers || []).filter(u =>
+        u.Status === 'Ativo' &&
+        u.telefone !== telefone &&
+        u.telefone !== numOnly &&
+        u.telefone !== altNum
+      );
+
+      const hasOtherUsers = activeRemaining.length > 0;
       if (!hasOtherUsers) {
         // Não há mais ninguém na mesa — liberar visualmente
         setTables(prev => prev.map(t =>
           t.id === tableId
-            ? { ...t, status: 'free', alert: null, consumption: [], comandas: [] }
+            ? { ...t, status: 'free', alert: null, orders: [], consumption: [], comandas: [] }
             : t
         ));
         console.log(`[Close Comanda] 🟢 Mesa ${tableId} liberada (última comanda fechada)`);
+      } else {
+        // Ainda há outros usuários — remove APENAS esta comanda fechada mantendo as demais ativas
+        setTables(prev => prev.map(t =>
+          t.id === tableId
+            ? {
+                ...t,
+                comandas: (t.comandas || []).filter(c =>
+                  c.telefone !== telefone &&
+                  c.telefone !== numOnly &&
+                  c.telefone !== altNum
+                )
+              }
+            : t
+        ));
+        console.log(`[Close Comanda] 👤 Comanda de ${customerName} fechada. Restam ${activeRemaining.length} comandas ativas na mesa ${tableId}`);
       }
 
     } catch (err) {
