@@ -14,7 +14,6 @@ import {
     CheckCircle2,
     UtensilsCrossed,
     Sparkles,
-    MessageSquare,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api-config';
 
@@ -28,7 +27,6 @@ const Checkin: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     const [restauranteNome, setRestauranteNome] = useState('');
-    const [restaurantePhone, setRestaurantePhone] = useState('553398525493');
     const [loadingPage, setLoadingPage] = useState(true);
     const [error, setError] = useState('');
 
@@ -43,7 +41,7 @@ const Checkin: React.FC = () => {
             try {
                 const { data, error: err } = await supabase
                     .from('Restaurantes')
-                    .select('nome, telefone')
+                    .select('nome')
                     .eq('id', restauranteId)
                     .single();
 
@@ -51,9 +49,6 @@ const Checkin: React.FC = () => {
                     setError('Restaurante não encontrado.');
                 } else {
                     setRestauranteNome(data.nome);
-                    if (data.telefone) {
-                        setRestaurantePhone(data.telefone);
-                    }
                 }
             } catch {
                 setError('Erro ao carregar dados.');
@@ -230,48 +225,35 @@ const Checkin: React.FC = () => {
 
     // Sucesso
     if (isSuccess) {
-        const cleanRestPhone = (restaurantePhone || '553398525493').replace(/\D/g, '');
-        const targetPhone = cleanRestPhone.startsWith('55') ? cleanRestPhone : `55${cleanRestPhone}`;
-        const whatsAppUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(`Olá! Acabei de sentar na Mesa ${mesa}. Quero fazer meu pedido! 😊`)}`;
-
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6 text-center">
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px] animate-pulse" />
                 <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-500/10 rounded-full blur-[120px] animate-pulse" />
 
-                <div className="relative z-10 w-full max-w-sm animate-in fade-in zoom-in-95 duration-700">
+                <div className="relative z-10 animate-in fade-in zoom-in-95 duration-700">
                     <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-6 ring-4 ring-emerald-500/10">
                         <CheckCircle2 className="w-10 h-10 text-emerald-400" />
                     </div>
 
-                    <h1 className="text-3xl font-black text-white mb-2">
+                    <h1 className="text-3xl font-black text-white mb-3">
                         Bem-vindo, {nome.split(' ')[0]}! 🎉
                     </h1>
-                    <p className="text-slate-400 text-base mb-1">
-                        Você está na <span className="text-emerald-400 font-black">Mesa {mesa}</span>
+                    <p className="text-slate-400 text-base mb-2">
+                        Você está na <span className="text-primary font-bold">Mesa {mesa}</span> do{' '}
+                        <span className="text-white font-semibold">{restauranteNome}</span>
                     </p>
-                    <p className="text-slate-500 text-xs mb-6">
-                        {restauranteNome} • PedeAí Inteligente
+                    <p className="text-slate-500 text-sm mt-4 max-w-sm mx-auto">
+                        Enviamos uma mensagem no seu WhatsApp. <br />
+                        Use o chat para fazer seus pedidos! 📱
                     </p>
 
-                    {/* Botão de Ação Direta para WhatsApp (100% à prova de falhas) */}
-                    <a
-                        href={whatsAppUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full flex items-center justify-center gap-2.5 py-4 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-base shadow-xl shadow-emerald-500/30 transition-all active:scale-95 mb-4 group cursor-pointer"
-                    >
-                        <MessageSquare className="w-5 h-5 fill-current" />
-                        <span>Abrir WhatsApp e Pedir</span>
-                    </a>
-
-                    <div className="p-4 bg-white/5 rounded-2xl border border-white/10 text-left">
-                        <div className="flex items-center gap-3">
-                            <UtensilsCrossed className="w-7 h-7 text-emerald-400 shrink-0" />
+                    <div className="mt-8 p-4 bg-white/5 rounded-2xl border border-white/10 max-w-xs mx-auto">
+                        <div className="flex items-center gap-3 text-left">
+                            <UtensilsCrossed className="w-8 h-8 text-primary" />
                             <div>
-                                <p className="text-white font-semibold text-xs">Atendimento Ativo</p>
-                                <p className="text-slate-400 text-[11px]">
-                                    Clique no botão verde acima para falar com nosso garçom virtual ou envie áudio no WhatsApp!
+                                <p className="text-white font-semibold text-sm">Pronto para pedir?</p>
+                                <p className="text-slate-500 text-xs">
+                                    Abra o WhatsApp e converse conosco
                                 </p>
                             </div>
                         </div>

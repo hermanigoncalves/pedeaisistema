@@ -40,8 +40,12 @@ export function registerFirstMessageRoutes(app: FastifyInstance) {
       // Limpar memória do agente para este telefone (nova sessão = conversa limpa)
       clearMemory(phone);
 
-      // Digitando...
-      await sendTypingAndWait(payload.restauranteId, phone, 1500);
+      // Digitando (não bloqueante)...
+      try {
+        await sendTypingAndWait(payload.restauranteId, phone, 800);
+      } catch {
+        // Presença não bloqueia a mensagem principal
+      }
 
       const restName = payload.restauranteNome || 'Polis Pub';
       const isPolis = restName.toLowerCase().includes('polis') || (payload.restauranteId === '875bcd11-b91d-4abc-aae8-ee587df23717');
@@ -56,9 +60,9 @@ export function registerFirstMessageRoutes(app: FastifyInstance) {
         mensagem = `Olá, ${payload.nome}! 👋 Que alegria ter você de volta ao ${payload.restauranteNome}!\n\nEsta já é a sua visita número ${payload.visits} conosco! 🏆 Seu atendimento na Mesa ${payload.mesaId} já foi iniciado. 📲\n\nJá sabe o que vai pedir dessa vez ou quer dar mais uma olhadinha no cardápio? Sinta-se em casa! 😊🍔🍻`;
       }
 
-      console.log(`[FirstMsg] 📤 Enviando saudação para ${payload.nome} (${phone.slice(0, 6)}...)`);
+      console.log(`[FirstMsg] 📤 Agente chamando ${payload.nome} (${phone.slice(0, 6)}...) na mesa ${payload.mesaId}...`);
       await evolution.sendText(payload.restauranteId, phone, mensagem);
-      console.log(`[FirstMsg] ✅ Saudação enviada com sucesso para ${payload.nome}`);
+      console.log(`[FirstMsg] ✅ Saudação enviada com sucesso para ${payload.nome} (Mesa ${payload.mesaId})`);
 
       // Salvar no histórico de mensagens do Supabase
       if (payload.restauranteId) {

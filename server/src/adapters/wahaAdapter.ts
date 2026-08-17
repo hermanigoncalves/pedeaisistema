@@ -55,14 +55,13 @@ function getAllCandidateChatIds(number: string): string[] {
 
       if (ninth === '9') {
         const withoutNine = '55' + ddd + rest;
-        // Prioriza o formato sem 9 (padrão de contas antigas e modo LID Meta) e com @s.whatsapp.net
-        candidates.push(`${withoutNine}@s.whatsapp.net`);
+        candidates.push(`${numOnly}@c.us`);
         candidates.push(`${withoutNine}@c.us`);
         candidates.push(`${numOnly}@s.whatsapp.net`);
-        candidates.push(`${numOnly}@c.us`);
+        candidates.push(`${withoutNine}@s.whatsapp.net`);
       } else {
-        candidates.push(`${numOnly}@s.whatsapp.net`);
         candidates.push(`${numOnly}@c.us`);
+        candidates.push(`${numOnly}@s.whatsapp.net`);
       }
     } else if (numOnly.length === 12) {
       // Número BR com 12 dígitos: 55 + DDD (2) + 8 dígitos
