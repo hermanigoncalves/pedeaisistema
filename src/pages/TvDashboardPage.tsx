@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import PropagandaCarousel from '@/components/dashboard/PropagandaCarousel';
 import { useApp, Table, Pedido } from '@/contexts/AppContext';
 import { isSystemMarkerItem } from '@/lib/utils';
 import { 
@@ -342,18 +343,8 @@ export const TvDashboardPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Conteúdo Central Promos / QR Code */}
-              <div className="flex-1 border-2 border-dashed border-emerald-200 rounded-xl bg-emerald-50/40 my-3 flex flex-col items-center justify-center p-4 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-white border border-emerald-200 shadow-sm flex items-center justify-center text-emerald-700 mb-2">
-                  <QrCode className="w-10 h-10" />
-                </div>
-                <h4 className="font-black text-sm text-emerald-900">
-                  Faça seu Pedido pelo WhatsApp
-                </h4>
-                <p className="text-xs text-slate-500 max-w-[200px] mt-1">
-                  Aponte a câmera para o QR Code da mesa e abra sua comanda instantaneamente.
-                </p>
-              </div>
+              {/* Conteúdo Central: Vídeos e Imagens de Propaganda em Loop */}
+              <PropagandaCarousel />
 
               <div className="text-[11px] text-center text-slate-400 font-medium">
                 PedeAí Digital • Atendimento Inteligente
