@@ -466,23 +466,33 @@ async function processPrintQueue() {
   isProcessingPrintQueue = true;
 
   try {
-    while (persistentPrintQueue.length > 0) {
-      const currentTask = persistentPrintQueue[0];
+    // Pegar as tarefas atuais
+    const pendingTasks = [...persistentPrintQueue];
+    for (const currentTask of pendingTasks) {
+      const taskIndex = persistentPrintQueue.findIndex(t => t.taskId === currentTask.taskId);
+      if (taskIndex === -1) continue;
+
       console.log(`[PrintQueue] 🖨️ Processando cupom (${currentTask.retryCount + 1}ª tentativa) — Pedido #${currentTask.pedido.id} [${currentTask.station.toUpperCase()}]...`);
 
       const success = await executeSinglePrintTask(currentTask);
 
       if (success) {
-        // Sucesso! Remove da fila e atualiza o arquivo
-        persistentPrintQueue.shift();
+        // Sucesso! Remove da fila
+        persistentPrintQueue.splice(taskIndex, 1);
         savePrintQueue();
         console.log(`[PrintQueue] ✅ Impressao concluida com sucesso! Fila restante: ${persistentPrintQueue.length}`);
       } else {
-        // Falha de conexão/impressora -> Mantém na fila e interrompe o loop para tentar novamente em 5s
+        // Falha de conexão/impressora
         currentTask.retryCount = (currentTask.retryCount || 0) + 1;
         savePrintQueue();
-        console.warn(`[PrintQueue] ⚠️ Impressora offline, desconectada ou em erro. Cupom do Pedido #${currentTask.pedido.id} MANTIDO NA FILA. Tentativa em 5s...`);
-        break;
+        
+        if (currentTask.retryCount >= 5) {
+          console.warn(`[PrintQueue] ❌ Desistindo do cupom Pedido #${currentTask.pedido.id} apos 5 tentativas falhas. Removido da fila.`);
+          persistentPrintQueue.splice(taskIndex, 1);
+          savePrintQueue();
+        } else {
+          console.warn(`[PrintQueue] ⚠️ Impressora offline, desconectada ou em erro. Cupom do Pedido #${currentTask.pedido.id} MANTIDO NA FILA. Tentativa em 5s...`);
+        }
       }
     }
   } catch (err) {
@@ -663,11 +673,22 @@ function parseItens(pedido) {
     }
     const unitPrice = rawItemsList.length > 0 ? total / rawItemsList.length : 0;
 
-    itens = Object.entries(itemCounts).map(([nome, qtd]) => ({
-      nome,
-      quantidade: qtd,
-      preco: unitPrice
-    }));
+    itens = Object.entries(itemCounts).map(([nome, qtd]) => {
+      // Se houver a coluna "quantidade" definida pelo bot e não for um JSON complexo
+      const baseQtd = pedido.quantidade ? parseInt(pedido.quantidade, 10) : NaN;
+      let finalQtd = qtd;
+      
+      // Se a lista de itens legada só tiver 1 elemento único, assumimos a quantidade exata enviada
+      if (Object.keys(itemCounts).length === 1 && !isNaN(baseQtd) && baseQtd > 0) {
+        finalQtd = baseQtd;
+      }
+
+      return {
+        nome,
+        quantidade: finalQtd,
+        preco: unitPrice
+      };
+    });
   }
 
   return itens;

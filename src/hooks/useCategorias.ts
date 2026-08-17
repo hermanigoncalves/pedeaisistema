@@ -21,14 +21,14 @@ export const useCategorias = (restaurantId: string | null) => {
 
     try {
       const { data, error } = await supabase
-        .from('categorias_restaurante' as any)
+        .from('Categorias' as any)
         .select('*')
         .eq('restaurante_id', restaurantId)
         .order('nome', { ascending: true });
 
       if (error) {
         if (error.code === '42P01') {
-          console.warn('[useCategorias] Tabela categorias_restaurante não existe no banco de dados ainda.');
+          console.warn('[useCategorias] Tabela Categorias não existe no banco de dados ainda.');
         } else {
           throw error;
         }
@@ -46,7 +46,7 @@ export const useCategorias = (restaurantId: string | null) => {
     if (!restaurantId) return false;
     try {
       const { error } = await supabase
-        .from('categorias_restaurante' as any)
+        .from('Categorias' as any)
         .insert({ restaurante_id: restaurantId, nome });
 
       if (error) throw error;
@@ -63,7 +63,7 @@ export const useCategorias = (restaurantId: string | null) => {
     if (!restaurantId) return false;
     try {
       const { error } = await supabase
-        .from('categorias_restaurante' as any)
+        .from('Categorias' as any)
         .update({ nome })
         .eq('id', id)
         .eq('restaurante_id', restaurantId);
@@ -82,7 +82,7 @@ export const useCategorias = (restaurantId: string | null) => {
     if (!restaurantId) return false;
     try {
       const { error } = await supabase
-        .from('categorias_restaurante' as any)
+        .from('Categorias' as any)
         .delete()
         .eq('id', id)
         .eq('restaurante_id', restaurantId);
@@ -114,7 +114,7 @@ export const useCategorias = (restaurantId: string | null) => {
         {
           event: '*',
           schema: 'public',
-          table: 'categorias_restaurante',
+          table: 'Categorias',
           filter: `restaurante_id=eq.${restaurantId}`,
         },
         () => {
