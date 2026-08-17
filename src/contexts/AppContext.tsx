@@ -650,7 +650,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Filtra pedidos pendentes que ainda não foram impressos nesta sessão
     const newPendingOrders = pedidos.filter(p => {
-      const isPending = p.status?.toLowerCase() === 'pendente';
+      const status = p.status?.toLowerCase() || '';
+      const isPending = ['pendente', 'recebido', 'preparando'].includes(status);
       const notPrintedYet = !printedOrdersRef.current.has(p.id);
 
       // Filtra pedidos que são apenas marcadores de abertura de mesa

@@ -21,8 +21,8 @@ const { createClient } = require('@supabase/supabase-js');
 const { ThermalPrinter, PrinterTypes, CharacterSet, BreakLine } = require('node-thermal-printer');
 
 // Credenciais padrão da plataforma PedeAí (usadas como fallback se não estiverem no .env)
-const DEFAULT_SUPABASE_URL = 'https://ipcawfdvdwcvrcdbegny.supabase.co';
-const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlwY2F3ZmR2ZHdjdnJjZGJlZ255Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NTQ5Mzc3NiwiZXhwIjoyMTAxMDY5Nzc2fQ.bj7I4qd3vHgmyNpG-o95N46k8MLTy3UnupGoR10yDgg';
+const DEFAULT_SUPABASE_URL = 'https://ipyaxotvhahjyrgnkngu.supabase.co';
+const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWF4b3R2aGFoanlyZ25rbmd1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3Nzk1NDkwMiwiZXhwIjoyMDkzNTMwOTAyfQ.EzUfahzJUXIoUswLaZNmNMDk9fDrNz8G_a8qFaavjfE';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || DEFAULT_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || DEFAULT_SUPABASE_KEY;
