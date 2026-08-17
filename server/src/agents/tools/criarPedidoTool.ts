@@ -331,7 +331,16 @@ export function criarPedidoTool(userData: { mesa_atual: string; id_restaurante: 
 
           // Corrigir o nome do item no pedido para o nome real do banco
           nomeItemCorrigido = melhorCandidato.nome;
-          precoUnitarioReal = melhorCandidato.preco;
+          // Se o banco tem preço zerado/nulo, usa o preço da IA como fallback (o produto pode não ter preço cadastrado)
+          const precoBanco = melhorCandidato.preco;
+          if (precoBanco && precoBanco > 0) {
+            precoUnitarioReal = precoBanco;
+          } else {
+            const subtotalIA = parseFloat(Subtotal || '0');
+            const qtdTemp = Math.max(1, parseInt(quantidade, 10) || 1);
+            precoUnitarioReal = subtotalIA > 0 ? subtotalIA / qtdTemp : 0;
+            console.warn(`[criarPedido] ⚠️ Preço do banco é R$0 para "${nomeItemCorrigido}". Usando preço da IA como fallback: R$${precoUnitarioReal?.toFixed(2)}/un.`);
+          }
 
           // 4. Validar disponibilidade (ativo)
           if (!melhorCandidato.ativo) {
@@ -376,15 +385,16 @@ export function criarPedidoTool(userData: { mesa_atual: string; id_restaurante: 
         if (recentOrders && recentOrders.length > 0) {
           const isDuplicate = recentOrders.some((p: any) => {
             const sameItem = p.itens?.trim().toLowerCase() === nomeItemCorrigido.trim().toLowerCase();
-            const sameDesc = (p.descricao || '').trim().toLowerCase() === (descricao || '').trim().toLowerCase();
-            return sameItem && sameDesc;
+            // Bloqueia mesmo item nos últimos 15s INDEPENDENTE da quantidade — evita IA fazer 2 chamadas (2x+1x=3)
+            return sameItem;
           });
 
           if (isDuplicate) {
-            console.warn(`[criarPedido] ⚠️ Pedido idêntico detectado para "${nomeItemCorrigido}" (${descricao}) na Mesa ${userData.mesa_atual} nos últimos 15s. Ignorando inserção redundante de clique duplo.`);
+            console.warn(`[criarPedido] ⚠️ Pedido idêntico detectado para "${nomeItemCorrigido}" na Mesa ${userData.mesa_atual} nos últimos 15s. Ignorando inserção redundante.`);
             return JSON.stringify({
               success: true,
-              message: `Pedido de "${nomeItemCorrigido}" registrado com sucesso.`
+              deduplicated: true,
+              message: `O pedido de "${nomeItemCorrigido}" já foi registrado há poucos segundos. Não é necessário registrar novamente.`
             });
           }
         }
