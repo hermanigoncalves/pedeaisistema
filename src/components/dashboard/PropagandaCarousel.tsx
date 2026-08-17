@@ -9,8 +9,22 @@ export interface MediaItem {
   durationSeconds?: number; // Para imagens (padrão: 8 segundos)
 }
 
-// Lista padrão de vídeos da pasta /propaganda/
+// Lista padrão de mídias da pasta /propaganda/
 const DEFAULT_MEDIA_LIST: MediaItem[] = [
+  {
+    id: 'img-abrasel',
+    type: 'image',
+    src: '/propaganda/abrasel-club.png',
+    title: 'Abrasel Club',
+    durationSeconds: 10
+  },
+  {
+    id: 'img-cheguei',
+    type: 'image',
+    src: '/propaganda/cheguei-app.png',
+    title: 'Cheguei - Check-in Automatizado',
+    durationSeconds: 10
+  },
   {
     id: 'video-1',
     type: 'video',

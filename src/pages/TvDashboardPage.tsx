@@ -537,11 +537,12 @@ export const TvDashboardPage: React.FC = () => {
             {/* 5. CARD SUPORTE WHATSAPP COM QR CODE (Col 2/12) */}
             <div className="col-span-2 bg-[#111827]/90 rounded-2xl border border-slate-800 shadow-lg p-3 sm:p-4 flex flex-col justify-between items-center text-center backdrop-blur-md">
               <div>
-                <h3 className="text-xs font-black text-white leading-tight tracking-wide">
+                <h3 className="text-xs font-black text-white leading-tight tracking-wide flex items-center justify-center gap-1.5">
+                  <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
                   Suporte WhatsApp
                 </h3>
                 <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">
-                  Escaneie o QR Code
+                  Escaneie para conversar
                 </span>
               </div>
 
@@ -555,11 +556,14 @@ export const TvDashboardPage: React.FC = () => {
                 />
               </div>
 
-              <div className="space-y-0.5">
-                <span className="text-[11px] font-mono font-bold text-slate-200 block tracking-tight">
-                  (33) 98812-3747
+              <div className="space-y-0.5 w-full">
+                <span className="text-[11px] font-black text-emerald-300 block tracking-wide">
+                  Estamos aqui! 👋
                 </span>
-                <div className="text-[10px] text-emerald-400 font-bold flex items-center justify-center gap-1.5">
+                <span className="text-[10px] font-mono font-bold text-slate-300 block">
+                  WhatsApp: (33) 98812-3747
+                </span>
+                <div className="text-[10px] text-emerald-400 font-bold flex items-center justify-center gap-1.5 pt-0.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                   <span>Online</span>
                 </div>
