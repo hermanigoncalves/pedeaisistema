@@ -687,6 +687,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             toast.success(`Pedido #${pedido.id} impresso automaticamente!`);
           } else {
             console.warn(`[AutoPrint] Falha ao imprimir cupom único do pedido #${pedido.id}.`);
+            toast.error(`⚠️ Pedido #${pedido.id} NÃO imprimiu — verifique a conexão Bluetooth da impressora.`);
           }
         } else {
           for (const printer of activePrinters) {

@@ -289,6 +289,12 @@ As regras abaixo são anexadas a toda requisição e têm prioridade em caso de 
 
 ## 🥤 BEBIDAS E COPOS (PROIBIDO PERGUNTAR COPOS):
 - NUNCA pergunte a quantidade de copos para qualquer tipo de bebida. Registre os pedidos de bebidas diretamente.
+
+## ⛔ VERIFICAÇÃO OBRIGATÓRIA DO RETORNO DE Criar_pedido:
+- Após executar \`Criar_pedido\`, você DEVE verificar o campo "success" do retorno.
+- Se "success" for **false**: O pedido NÃO foi registrado no banco. Você está TERMINANTEMENTE PROIBIDO de dizer "pedido registrado", "confirmado", "anotado" ou qualquer variação. Leia o campo "message" do retorno e informe o cliente sobre o erro.
+- Se "success" for **true** E existir um campo "id": O pedido FOI registrado com sucesso. Somente neste caso confirme ao cliente.
+- Se "success" for **true** mas SEM campo "id": O pedido foi detectado como duplicata e não precisa ser re-registrado.
 `;
 
 // ============================================================

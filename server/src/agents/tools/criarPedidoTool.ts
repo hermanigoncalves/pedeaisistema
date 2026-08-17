@@ -154,10 +154,13 @@ export function criarPedidoTool(userData: { mesa_atual: string; id_restaurante: 
     func: async ({ itens, Subtotal, quantidade, descricao }) => {
       try {
         if (!userData.mesa_atual || userData.mesa_atual === '0' || userData.mesa_atual === 'Sem mesa') {
+          console.error(`[criarPedido] ⛔ BLOQUEADO: Tentativa de criar pedido sem mesa ativa. Telefone: ${userData.telefone}, Mesa: ${userData.mesa_atual}`);
           return JSON.stringify({
             success: false,
             error_code: 'SEM_MESA',
-            message: 'ERRO CRÍTICO: O cliente não possui check-in em nenhuma mesa (mesa_atual: 0). Você está TERMINANTEMENTE PROIBIDO de dizer que o pedido foi confirmado ou registrado. Avise o cliente com simpatia que ele precisa escanear o QR Code da mesa para fazer o check-in e abrir a comanda antes de realizar pedidos no salão.'
+            pedido_registrado: false,
+            pedido_criado: false,
+            message: '⛔ PEDIDO NÃO FOI REGISTRADO — O cliente NÃO possui check-in ativo (mesa_atual: 0). O pedido NÃO foi salvo no banco de dados. Você está TERMINANTEMENTE PROIBIDO de dizer "pedido registrado", "pedido confirmado", "anotado" ou qualquer variação. Informe ao cliente com simpatia que ele precisa fazer check-in escaneando o QR Code da mesa antes de pedir. Se ele já fez check-in antes, peça para escanear novamente.'
           });
         }
 
