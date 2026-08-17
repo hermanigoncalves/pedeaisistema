@@ -156,7 +156,8 @@ export function criarPedidoTool(userData: { mesa_atual: string; id_restaurante: 
         if (!userData.mesa_atual || userData.mesa_atual === '0' || userData.mesa_atual === 'Sem mesa') {
           return JSON.stringify({
             success: false,
-            message: 'O cliente não possui check-in em nenhuma mesa (mesa_atual: 0). Oriente-o a ler o QR Code da mesa para realizar o check-in.'
+            error_code: 'SEM_MESA',
+            message: 'ERRO CRÍTICO: O cliente não possui check-in em nenhuma mesa (mesa_atual: 0). Você está TERMINANTEMENTE PROIBIDO de dizer que o pedido foi confirmado ou registrado. Avise o cliente com simpatia que ele precisa escanear o QR Code da mesa para fazer o check-in e abrir a comanda antes de realizar pedidos no salão.'
           });
         }
 

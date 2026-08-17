@@ -20,31 +20,86 @@ class SupabaseAdapter {
     if (!phone) return null;
 
     const numOnly = phone.replace(/\D/g, '');
-    let altNum = numOnly;
+    if (!numOnly) return null;
 
-    if (numOnly.startsWith('55')) {
-      if (numOnly.length === 13 && numOnly.charAt(4) === '9') {
-        altNum = '55' + numOnly.substring(2, 4) + numOnly.substring(5);
-      } else if (numOnly.length === 12) {
-        altNum = '55' + numOnly.substring(2, 4) + '9' + numOnly.substring(4);
+    const candidateNumbers = new Set<string>();
+    candidateNumbers.add(numOnly);
+
+    // Tratar formatos do Brasil
+    let ddd = '';
+    let localNum = '';
+
+    if (numOnly.startsWith('55') && numOnly.length >= 10) {
+      ddd = numOnly.substring(2, 4);
+      localNum = numOnly.substring(4);
+    } else if (numOnly.length >= 10 && !numOnly.startsWith('55')) {
+      ddd = numOnly.substring(0, 2);
+      localNum = numOnly.substring(2);
+    }
+
+    if (ddd && localNum) {
+      // 1. Variação com e sem 55
+      candidateNumbers.add(`55${ddd}${localNum}`);
+      candidateNumbers.add(`${ddd}${localNum}`);
+
+      // 2. Se começa com 9 repetido (ex: 998231142 digitado no check-in)
+      if (localNum.startsWith('99') && localNum.length === 9) {
+        const fixedLocal = localNum.substring(1); // 98231142
+        candidateNumbers.add(`55${ddd}${fixedLocal}`);
+        candidateNumbers.add(`${ddd}${fixedLocal}`);
+      }
+
+      // 3. Variação 9 dígitos vs 8 dígitos
+      if (localNum.length === 9 && localNum.startsWith('9')) {
+        const withoutNine = localNum.substring(1);
+        candidateNumbers.add(`55${ddd}${withoutNine}`);
+        candidateNumbers.add(`${ddd}${withoutNine}`);
+      } else if (localNum.length === 8) {
+        const withNine = '9' + localNum;
+        candidateNumbers.add(`55${ddd}${withNine}`);
+        candidateNumbers.add(`${ddd}${withNine}`);
       }
     }
+
+    // 4. Últimos 8 dígitos para fallback
+    const last8 = numOnly.slice(-8);
+
+    const orClauses = Array.from(candidateNumbers)
+      .map(num => `telefone.eq.${num}`)
+      .join(',');
 
     let query = this.client
       .from('Usuários')
       .select('*')
-      .or(`telefone.eq.${numOnly},telefone.eq.${altNum}`);
+      .or(orClauses);
 
     if (restauranteId) {
       query = query.eq('id_restaurante', restauranteId);
     }
 
-    const { data, error } = await query
+    let { data, error } = await query
       .order('ultimo_checkin', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
       .limit(1);
 
     if (error) console.error('[Supabase] Erro getUserByPhone:', error.message);
+
+    // Fallback: se não encontrou e temos os últimos 8 dígitos + restauranteId
+    if ((!data || data.length === 0) && restauranteId && last8.length === 8) {
+      const fallbackQuery = await this.client
+        .from('Usuários')
+        .select('*')
+        .eq('id_restaurante', restauranteId)
+        .ilike('telefone', `%${last8}`)
+        .order('ultimo_checkin', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (fallbackQuery.data && fallbackQuery.data.length > 0) {
+        data = fallbackQuery.data;
+      }
+    }
+
     return data && data.length > 0 ? data[0] : null;
   }
 
