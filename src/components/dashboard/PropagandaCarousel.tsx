@@ -139,14 +139,14 @@ export const PropagandaCarousel: React.FC<PropagandaCarouselProps> = ({
   // Fallback se não houver mídias válidas
   if (!currentMedia || mediaList.length === 0) {
     return (
-      <div className="flex-1 border-2 border-dashed border-emerald-200 rounded-xl bg-emerald-50/40 my-3 flex flex-col items-center justify-center p-4 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-white border border-emerald-200 shadow-sm flex items-center justify-center text-emerald-700 mb-2">
+      <div className="flex-1 border border-dashed border-emerald-500/40 rounded-xl bg-emerald-950/20 my-3 flex flex-col items-center justify-center p-4 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-emerald-500/40 shadow-md flex items-center justify-center text-emerald-400 mb-2">
           <QrCode className="w-10 h-10" />
         </div>
-        <h4 className="font-black text-sm text-emerald-900">
+        <h4 className="font-black text-sm text-emerald-400">
           Faça seu Pedido pelo WhatsApp
         </h4>
-        <p className="text-xs text-slate-500 max-w-[200px] mt-1">
+        <p className="text-xs text-slate-400 max-w-[200px] mt-1">
           Aponte a câmera para o QR Code da mesa e abra sua comanda instantaneamente.
         </p>
       </div>
