@@ -36,39 +36,69 @@ async function withRetry<T>(
 }
 
 /**
- * Converte número limpo para formato WAHA JID/chatId (ex: 5511999999999@c.us)
+ * Retorna todos os formatos possíveis de chatId (JID) para o número no WhatsApp.
+ * Cobre números brasileiros com e sem 9º dígito e domínios @c.us e @s.whatsapp.net
+ * para contornar falhas de resolução de LID no WAHA.
  */
-function toWahaChatId(number: string): string {
+function getAllCandidateChatIds(number: string): string[] {
+  if (!number) return [];
   const clean = normalizePhone(number);
-  if (clean.includes('@')) return clean;
-  return `${clean}@c.us`;
+  const numOnly = clean.split('@')[0].replace(/\D/g, '');
+  const candidates: string[] = [];
+
+  if (numOnly.startsWith('55')) {
+    // Número BR com 13 dígitos: 55 + DDD (2) + 9 (1) + 8 dígitos
+    if (numOnly.length === 13) {
+      const ddd = numOnly.substring(2, 4);
+      const ninth = numOnly.substring(4, 5);
+      const rest = numOnly.substring(5);
+
+      if (ninth === '9') {
+        const withoutNine = '55' + ddd + rest;
+        candidates.push(`${numOnly}@c.us`);
+        candidates.push(`${withoutNine}@c.us`);
+        candidates.push(`${numOnly}@s.whatsapp.net`);
+        candidates.push(`${withoutNine}@s.whatsapp.net`);
+      } else {
+        candidates.push(`${numOnly}@c.us`);
+        candidates.push(`${numOnly}@s.whatsapp.net`);
+      }
+    } else if (numOnly.length === 12) {
+      // Número BR com 12 dígitos: 55 + DDD (2) + 8 dígitos
+      const ddd = numOnly.substring(2, 4);
+      const rest = numOnly.substring(4);
+      const withNine = '55' + ddd + '9' + rest;
+
+      candidates.push(`${numOnly}@c.us`);
+      candidates.push(`${withNine}@c.us`);
+      candidates.push(`${numOnly}@s.whatsapp.net`);
+      candidates.push(`${withNine}@s.whatsapp.net`);
+    } else {
+      candidates.push(`${numOnly}@c.us`);
+      candidates.push(`${numOnly}@s.whatsapp.net`);
+    }
+  } else if (clean.includes('@')) {
+    const base = clean.split('@')[0];
+    candidates.push(clean);
+    candidates.push(clean.includes('@c.us') ? `${base}@s.whatsapp.net` : `${base}@c.us`);
+  } else if (numOnly) {
+    candidates.push(`${numOnly}@c.us`);
+    candidates.push(`${numOnly}@s.whatsapp.net`);
+  }
+
+  // Remove duplicatas mantendo a ordem
+  return Array.from(new Set(candidates));
+}
+
+function toWahaChatId(number: string): string {
+  const candidates = getAllCandidateChatIds(number);
+  return candidates[0] || `${normalizePhone(number)}@c.us`;
 }
 
 function getAlternateChatId(chatId: string): string | null {
-  if (!chatId) return null;
-  const numOnly = chatId.split('@')[0].replace(/\D/g, '');
-  const domain = chatId.includes('@s.whatsapp.net') ? '@s.whatsapp.net' : '@c.us';
-
-  if (!numOnly.startsWith('55')) return null;
-
-  // Se tem 13 dígitos (55 + DDD + 9 + 8 dígitos), tenta sem o 9 (12 dígitos)
-  if (numOnly.length === 13) {
-    const ddd = numOnly.substring(2, 4);
-    const ninth = numOnly.substring(4, 5);
-    if (ninth === '9') {
-      const altNum = '55' + ddd + numOnly.substring(5);
-      return `${altNum}${domain}`;
-    }
-  }
-
-  // Se tem 12 dígitos (55 + DDD + 8 dígitos), tenta com o 9 (13 dígitos)
-  if (numOnly.length === 12) {
-    const ddd = numOnly.substring(2, 4);
-    const altNum = '55' + ddd + '9' + numOnly.substring(4);
-    return `${altNum}${domain}`;
-  }
-
-  return null;
+  const candidates = getAllCandidateChatIds(chatId);
+  const alt = candidates.find(c => c !== chatId);
+  return alt || null;
 }
 
 /**
@@ -237,36 +267,49 @@ class WahaAdapter {
       sessionName = await this.getWorkingSession(overrideSessionName.trim(), axiosClient);
     }
 
-    const chatId = toWahaChatId(number);
+    const candidateChatIds = getAllCandidateChatIds(number);
+    const primaryChatId = candidateChatIds[0] || toWahaChatId(number);
 
     await withRetry(async () => {
+      // 1. Tentar primeiro o primaryChatId
       try {
         await axiosClient.post('/api/sendText', {
           session: sessionName,
-          chatId: chatId,
+          chatId: primaryChatId,
           text: messageText,
         });
-        console.log(`[WAHA API] ✅ Texto enviado para ${chatId} (Sessão: ${sessionName})`);
+        console.log(`[WAHA API] ✅ Texto enviado para ${primaryChatId} (Sessão: ${sessionName})`);
+        return;
       } catch (err: any) {
         const errObj = err.response?.data;
         const errMsg = JSON.stringify(errObj || err.message || '');
+        const isLidOrNotFoundError =
+          errMsg.includes('no LID found') ||
+          errMsg.includes('LID') ||
+          errMsg.includes('not found') ||
+          errMsg.includes('Contact not found') ||
+          err.response?.status === 500;
 
-        // 1. Se deu erro 'no LID found' (incompatibilidade do 9º dígito no WhatsApp), tenta o formato alternativo
-        if (errMsg.includes('no LID found')) {
-          const altChatId = getAlternateChatId(chatId);
-          if (altChatId) {
-            console.warn(`[WAHA API] ⚠️ Erro 'no LID found' para ${chatId}. Tentando número alternativo: ${altChatId}...`);
-            await axiosClient.post('/api/sendText', {
-              session: sessionName,
-              chatId: altChatId,
-              text: messageText,
-            });
-            console.log(`[WAHA API] ✅ Texto enviado com sucesso para número alternativo ${altChatId} (Sessão: ${sessionName})`);
-            return;
+        // 2. Se houver erro de LID / 500 / contato não encontrado, tenta TODOS os outros formatos candidatos
+        if (isLidOrNotFoundError && candidateChatIds.length > 1) {
+          for (const altChatId of candidateChatIds) {
+            if (altChatId === primaryChatId) continue;
+            try {
+              console.warn(`[WAHA API] ⚠️ Tentando formato alternativo: ${altChatId} (Sessão: ${sessionName})...`);
+              await axiosClient.post('/api/sendText', {
+                session: sessionName,
+                chatId: altChatId,
+                text: messageText,
+              });
+              console.log(`[WAHA API] ✅ Texto enviado com sucesso para formato alternativo ${altChatId} (Sessão: ${sessionName})`);
+              return;
+            } catch (altErr: any) {
+              console.warn(`[WAHA API] ⚠️ Formato alternativo ${altChatId} falhou:`, altErr.response?.data?.message || altErr.message);
+            }
           }
         }
 
-        // 2. Se deu erro de sessão inexistente, força atualização de cache e tenta 1x mais com a sessão ativa
+        // 3. Se deu erro de sessão inexistente, força atualização de cache e tenta com a sessão ativa
         if (errObj?.error && typeof errObj.error === 'string' && errObj.error.includes('does not exist')) {
           console.warn(`[WAHA API] ⚠️ Sessão '${sessionName}' não encontrada. Buscando sessões ativas do container...`);
           const resolved = await this.getWorkingSession(sessionName, axiosClient, true);
@@ -274,17 +317,18 @@ class WahaAdapter {
             console.log(`[WAHA API] 🔄 Re-enviando mensagem com a sessão ativa resolvida: '${resolved}'`);
             await axiosClient.post('/api/sendText', {
               session: resolved,
-              chatId: chatId,
+              chatId: primaryChatId,
               text: messageText,
             });
-            console.log(`[WAHA API] ✅ Texto enviado com sucesso para ${chatId} (Sessão: ${resolved})`);
+            console.log(`[WAHA API] ✅ Texto enviado com sucesso para ${primaryChatId} (Sessão: ${resolved})`);
             return;
           }
         }
-        console.error(`[WAHA API] ❌ Erro ao enviar texto:`, errObj || err.message);
+
+        console.error(`[WAHA API] ❌ Erro ao enviar texto para ${primaryChatId} (formatos tentados: ${candidateChatIds.join(', ')}):`, errObj || err.message);
         throw err;
       }
-    }, `sendText(${chatId})`);
+    }, `sendText(${primaryChatId})`);
   }
 
   /**
@@ -347,25 +391,26 @@ class WahaAdapter {
       mediaOpts = restauranteIdOrOpts;
     }
 
-    const chatId = toWahaChatId(mediaOpts?.number || '');
+    const candidateChatIds = getAllCandidateChatIds(mediaOpts?.number || '');
+    const primaryChatId = candidateChatIds[0] || toWahaChatId(mediaOpts?.number || '');
     const { axiosClient, sessionName } = await this.getClientForRestaurante(restauranteId);
 
     await withRetry(async () => {
-      try {
-        let endpoint = '/api/sendFile';
-        let defaultMime = 'application/octet-stream';
+      let endpoint = '/api/sendFile';
+      let defaultMime = 'application/octet-stream';
 
-        if (mediaOpts.mediatype === 'image') {
-          endpoint = '/api/sendImage';
-          defaultMime = 'image/jpeg';
-        } else if (mediaOpts.mediatype === 'audio') {
-          endpoint = '/api/sendVoice';
-          defaultMime = mediaOpts.media.includes('.webm') ? 'audio/webm' : 'audio/ogg';
-        }
+      if (mediaOpts.mediatype === 'image') {
+        endpoint = '/api/sendImage';
+        defaultMime = 'image/jpeg';
+      } else if (mediaOpts.mediatype === 'audio') {
+        endpoint = '/api/sendVoice';
+        defaultMime = mediaOpts.media.includes('.webm') ? 'audio/webm' : 'audio/ogg';
+      }
 
+      const buildPayload = (targetChatId: string) => {
         const payload: Record<string, any> = {
           session: sessionName,
-          chatId: chatId,
+          chatId: targetChatId,
           file: {
             url: mediaOpts.media,
             filename: mediaOpts.fileName || (mediaOpts.mediatype === 'audio' ? 'audio.ogg' : 'arquivo'),
@@ -376,14 +421,40 @@ class WahaAdapter {
         if (mediaOpts.caption && mediaOpts.mediatype !== 'audio') {
           payload.caption = mediaOpts.caption;
         }
+        return payload;
+      };
 
-        await axiosClient.post(endpoint, payload);
-        console.log(`[WAHA API] ✅ Mídia (${mediaOpts.mediatype}) enviada para ${chatId} (Sessão: ${sessionName})`);
+      try {
+        await axiosClient.post(endpoint, buildPayload(primaryChatId));
+        console.log(`[WAHA API] ✅ Mídia (${mediaOpts.mediatype}) enviada para ${primaryChatId} (Sessão: ${sessionName})`);
+        return;
       } catch (err: any) {
-        console.error(`[WAHA API] ❌ Erro ao enviar mídia (${mediaOpts?.mediatype}):`, err.response?.data || err.message);
+        const errObj = err.response?.data;
+        const errMsg = JSON.stringify(errObj || err.message || '');
+        const isLidOrNotFoundError =
+          errMsg.includes('no LID found') ||
+          errMsg.includes('LID') ||
+          errMsg.includes('not found') ||
+          err.response?.status === 500;
+
+        if (isLidOrNotFoundError && candidateChatIds.length > 1) {
+          for (const altChatId of candidateChatIds) {
+            if (altChatId === primaryChatId) continue;
+            try {
+              console.warn(`[WAHA API] ⚠️ Tentando enviar mídia para formato alternativo: ${altChatId}...`);
+              await axiosClient.post(endpoint, buildPayload(altChatId));
+              console.log(`[WAHA API] ✅ Mídia enviada com sucesso para ${altChatId} (Sessão: ${sessionName})`);
+              return;
+            } catch (altErr: any) {
+              console.warn(`[WAHA API] ⚠️ Mídia para ${altChatId} falhou:`, altErr.response?.data?.message || altErr.message);
+            }
+          }
+        }
+
+        console.error(`[WAHA API] ❌ Erro ao enviar mídia (${mediaOpts?.mediatype}):`, errObj || err.message);
         throw err;
       }
-    }, `sendMedia(${chatId})`);
+    }, `sendMedia(${primaryChatId})`);
   }
 
   /**
