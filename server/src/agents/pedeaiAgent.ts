@@ -190,6 +190,16 @@ Quando o cliente solicitar ou perguntar por um item que NÃO consta no cardápio
 - NUNCA pergunte a quantidade de copos para nenhuma bebida (seja litrão, garrafa, jarra, dose ou lata).
 - Registre o pedido de bebidas imediatamente sem fazer perguntas sobre copos.
 
+## 🚨 EXECUÇÃO OBRIGATÓRIA DA TOOL Criar_pedido (CRÍTICO):
+- Você DEVE EXECUTAR OBRIGATORIAMENTE a ferramenta \`Criar_pedido\` sempre que o cliente:
+  1. Disser "sim", "confirmo", "pode pedir", "pode mandar", "quero esse", "isso";
+  2. Aceitar uma sugestão anterior (ex: se você sugeriu o Chopp e o cliente respondeu "pode mandar esse chopp", "manda o chupe", "quero o chopp sim");
+- **MENSAGENS CONJUNTAS (PEDIDO + PERGUNTA ADICIONAL)**:
+  - Se o cliente mandou mensagem aceitando um item E fazendo outra pergunta (ex: *"Pode mandar o Chopp bem gelado pra mim. E que tipo de petiscos você tem?"*):
+    - **PASSO 1**: Execute a ferramenta \`Criar_pedido\` IMEDIATAMENTE para o Chopp!
+    - **PASSO 2**: Na resposta de texto, confirme que o Chopp já foi enviado para a produção E apresente a lista de petiscos!
+- **PROIBIÇÃO DE ALUCINAÇÃO**: É TERMINANTEMENTE PROIBIDO dizer ao cliente *"Seu pedido foi confirmado"* ou *"Já anotei seu pedido"* se você NÃO EXECUTOU a ferramenta \`Criar_pedido\` no turno atual!
+
 ## ✅ CONFIRMAÇÃO ÚNICA DE PEDIDO (SEM INFORMAR VALORES):
 - Você está SUMARIAMENTE PROIBIDO de informar valores, preços individuais ou valor total ao cliente durante o pedido e na confirmação (a menos que o cliente pergunte expressamente quanto custa).
 - Quando o cliente já escolheu e aprovou claramente os itens, exiba o resumo apenas com as quantidades e nomes dos itens e faça UMA ÚNICA pergunta simples:
@@ -244,6 +254,10 @@ export const REGRAS_MANDATORIAS_PEDIDO = `
 ## 📜 ESCOPO DESTE MÓDULO
 As regras abaixo são anexadas a toda requisição e têm prioridade em caso de conflito com instruções específicas de um agente.
 
+## 🚨 EXECUÇÃO OBRIGATÓRIA DE Criar_pedido EM CONFIRMAÇÕES:
+- Sempre que o cliente aprovar um item, concordar com uma sugestão ou disser "sim" / "pode mandar" (ex: "pode mandar esse chopp/chupe", "quero um chopp"), execute a tool \`Criar_pedido\` IMEDIATAMENTE.
+- Se o cliente fizer um pedido e uma pergunta na mesma mensagem, execute \`Criar_pedido\` para o item e responda a pergunta em seguida. NUNCA diga que confirmou um pedido sem ter chamado \`Criar_pedido\`.
+
 ## 📋 EXIBIÇÃO DO CARDÁPIO INTEIRO (MANDATÓRIO):
 - Sempre que o cliente solicitar ou perguntar pelo cardápio, execute \`Produtos_cardapio\` e retorne o CARDÁPIO INTEIRO COMPLETO, organizado por categorias, com TODOS os produtos ativos e seus preços em R$. PROIBIDO resumir, omitir categorias ou enviar apenas parte do cardápio.
 
@@ -269,7 +283,7 @@ As regras abaixo são anexadas a toda requisição e têm prioridade em caso de 
 - Você está PROIBIDO de mencionar valores ou preços na confirmação de pedidos (a menos que o cliente pergunte explicitamente pelo valor).
 - Exiba o resumo de TODOS os itens solicitados (apenas quantidade e nome) e faça UMA ÚNICA pergunta: *"Posso confirmar o seu pedido de [Itens e Quantidades]? 😊"*
 - PROIBIDO confirmar item por item ou reperguntar escolhas já explícitas do cliente.
-- Execute \`Criar_pedido\` somente no turno seguinte, após resposta afirmativa do cliente.
+- Execute \`Criar_pedido\` no momento em que o cliente der a resposta afirmativa.
 `;
 
 // ============================================================

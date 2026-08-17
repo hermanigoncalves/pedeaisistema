@@ -41,15 +41,32 @@ function findBestMatch(
   let bestCandidate: ProdutoCandidato | null = null;
   let minScore = Infinity;
 
+  // Dicionário de termos fonéticos e variações comuns de transcrição de áudio
+  const phoneticMap: Record<string, string> = {
+    chupe: 'chopp',
+    chope: 'chopp',
+    chop: 'chopp',
+    choop: 'chopp',
+    coquinha: 'coca',
+    refri: 'refrigerante',
+  };
+
   // Normalização avançada: minúsculas, remove acentos, caracteres especiais e reduz múltiplos espaços
-  const normalize = (str: string) =>
-    str
+  const normalize = (str: string) => {
+    let s = str
       .trim()
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9\s]/g, '')
       .replace(/\s+/g, ' ');
+
+    for (const [from, to] of Object.entries(phoneticMap)) {
+      const regex = new RegExp(`\\b${from}\\b`, 'g');
+      s = s.replace(regex, to);
+    }
+    return s;
+  };
 
   const normalizedInput = normalize(input);
 
@@ -127,7 +144,7 @@ function findBestMatch(
 export function criarPedidoTool(userData: { mesa_atual: string; id_restaurante: string; telefone: string }) {
   return new DynamicStructuredTool({
     name: 'Criar_pedido',
-    description: 'Cria um novo pedido para o cliente na mesa atual. ⚠️ ATENÇÃO: Você é SUMARIAMENTE PROIBIDO de executar esta tool na mensagem inicial do cliente sem antes ter perguntado e obtido a CONFIRMAÇÃO PRÉVIA dele ("sim", "confirmo", etc.). Se o pedido for vinho e o cliente não tiver escolhido o rótulo específico, você também está PROIBIDO de executar esta tool antes que ele escolha. IMPORTANTE: o campo "itens" deve conter o nome EXATO do produto (retorno de Produtos_cardapio). Customizações vão no campo "descricao".',
+    description: 'Cria e registra um novo pedido para o cliente no banco de dados. ⚠️ MANDATÓRIO: Você DEVE EXECUTAR esta ferramenta IMEDIATAMENTE sempre que o cliente confirmar um pedido ou aceitar uma sugestão anterior (ex: "sim", "pode mandar o chopp", "quero esse", "manda 1x"). É TERMINANTEMENTE PROIBIDO dizer ao cliente que o pedido foi confirmado sem ter executado esta ferramenta no mesmo turno! Se a mensagem contiver um aceite de item E uma pergunta adicional (ex: "pode mandar o chopp, e o que tem de petisco?"), execute esta ferramenta para registrar o Chopp PRIMEIRO e responda os petiscos em seguida. O campo "itens" deve conter o nome do produto (ex: "Chopp"). Customizações vão no campo "descricao".',
     schema: z.object({
       itens: z.string().describe('Nome EXATO do produto como aparece no cardápio (Produtos_cardapio). NUNCA coloque customizações aqui. Exemplo: "Skol 600ml", "Pizza Meia a Meia", "Massa Putanesca"'),
       Subtotal: z.string().describe('O valor total do pedido calculado exclusivamente como (quantidade física do produto * preço unitário do cardápio). Exemplo: 1 cerveja de R$12.00 com 3 copos = Subtotal: "12.00". NUNCA multiplique o subtotal pela quantidade de copos, pois os copos extras são gratuitos!'),
