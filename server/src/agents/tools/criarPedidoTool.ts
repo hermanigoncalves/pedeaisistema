@@ -329,18 +329,11 @@ export function criarPedidoTool(userData: { mesa_atual: string; id_restaurante: 
             });
           }
 
-          // Corrigir o nome do item no pedido para o nome real do banco
+          // Corrigir o nome do item e usar rigorosamente o preço real do banco (inclusive 0.00 para cortesia)
           nomeItemCorrigido = melhorCandidato.nome;
-          // Se o banco tem preço zerado/nulo, usa o preço da IA como fallback (o produto pode não ter preço cadastrado)
-          const precoBanco = melhorCandidato.preco;
-          if (precoBanco && precoBanco > 0) {
-            precoUnitarioReal = precoBanco;
-          } else {
-            const subtotalIA = parseFloat(Subtotal || '0');
-            const qtdTemp = Math.max(1, parseInt(quantidade, 10) || 1);
-            precoUnitarioReal = subtotalIA > 0 ? subtotalIA / qtdTemp : 0;
-            console.warn(`[criarPedido] ⚠️ Preço do banco é R$0 para "${nomeItemCorrigido}". Usando preço da IA como fallback: R$${precoUnitarioReal?.toFixed(2)}/un.`);
-          }
+          precoUnitarioReal = typeof melhorCandidato.preco === 'number'
+            ? melhorCandidato.preco
+            : (parseFloat(melhorCandidato.preco as any) || 0);
 
           // 4. Validar disponibilidade (ativo)
           if (!melhorCandidato.ativo) {
