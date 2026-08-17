@@ -20,6 +20,7 @@ const AdminLoginForm = lazy(() => import("./components/auth/AdminLoginForm"));
 const Login = lazy(() => import("./pages/Login"));
 const Checkin = lazy(() => import("./pages/Checkin"));
 const KdsPage = lazy(() => import("./pages/KdsPage"));
+const TvDashboardPage = lazy(() => import("./pages/TvDashboardPage"));
 
 const PageLoader = () => (
   <div className="flex-1 min-h-[50vh] flex items-center justify-center bg-background">
@@ -52,6 +53,8 @@ const App = () => (
               <Route path="/admin/login" element={<AdminLoginForm />} />
               <Route path="/checkin" element={<Checkin />} />
               <Route path="/kds/:station" element={<KdsPage />} />
+              <Route path="/tv" element={<TvDashboardPage />} />
+              <Route path="/painel-tv" element={<TvDashboardPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
