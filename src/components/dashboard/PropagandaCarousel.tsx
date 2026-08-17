@@ -1,28 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { QrCode, Film, Image as ImageIcon, Sparkles, Box } from 'lucide-react';
-import RobotMascot3D from '@/components/3d/RobotMascot3D';
+import { QrCode, Film, Image as ImageIcon } from 'lucide-react';
 
 export interface MediaItem {
   id: string;
-  type: 'video' | 'image' | '3d';
-  src?: string;
+  type: 'video' | 'image';
+  src: string;
   title?: string;
-  durationSeconds?: number; // Para imagens e 3D (padrão: 8 a 10 segundos)
+  durationSeconds?: number; // Para imagens (padrão: 8 segundos)
 }
 
-// Lista padrão de mídias da pasta /propaganda/ + Robô 3D PedeAí Delivery
+// Lista padrão de vídeos da pasta /propaganda/
 const DEFAULT_MEDIA_LIST: MediaItem[] = [
   {
     id: 'video-1',
     type: 'video',
     src: '/propaganda/WhatsApp%20Video%202026-08-17%20at%2011.29.58.mp4',
     title: 'Vídeo Promocional 1'
-  },
-  {
-    id: '3d-robot-mascot',
-    type: '3d',
-    title: 'Robô PedeAí Delivery 3D',
-    durationSeconds: 10
   },
   {
     id: 'video-2',
@@ -165,13 +158,6 @@ export const PropagandaCarousel: React.FC<PropagandaCarouselProps> = ({
       onClick={handleUnmuteClick}
       className="flex-1 min-h-0 w-full h-full max-h-[calc(100%-48px)] relative rounded-xl overflow-hidden bg-zinc-950 my-1.5 flex items-center justify-center shadow-inner group cursor-pointer"
     >
-      {/* Visualizador 3D do Robô PedeAí Delivery */}
-      {currentMedia.type === '3d' && (
-        <div className="w-full h-full p-2 flex items-center justify-center bg-gradient-to-b from-zinc-900 via-zinc-950 to-zinc-900">
-          <RobotMascot3D modelUrl="/models/PedeAI_garcom_robo.glb" showBadge={true} />
-        </div>
-      )}
-
       {/* Player de Vídeo com Áudio Liberado */}
       {currentMedia.type === 'video' && (
         <video
@@ -210,8 +196,6 @@ export const PropagandaCarousel: React.FC<PropagandaCarouselProps> = ({
         <div className="flex items-center gap-1.5 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-full text-[10px] text-white/90">
           {currentMedia.type === 'video' ? (
             <Film className="w-3 h-3 text-emerald-400" />
-          ) : currentMedia.type === '3d' ? (
-            <Box className="w-3 h-3 text-emerald-400 animate-spin" />
           ) : (
             <ImageIcon className="w-3 h-3 text-blue-400" />
           )}
