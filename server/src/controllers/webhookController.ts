@@ -77,7 +77,7 @@ async function handleWebhookRequest(request: any, reply: any) {
 
   // Extração exaustiva de remoteJid (WhatsApp JID do remetente)
   // Prioriza SenderAlt quando o remetente utiliza LID (@lid)
-  let candidateJid =
+  const candidateJid =
     (info.SenderAlt && !info.SenderAlt.includes('@lid') ? info.SenderAlt : null) ||
     (info.ChatAlt && !info.ChatAlt.includes('@lid') ? info.ChatAlt : null) ||
     (wahaMsg?.from && !wahaMsg.from.includes('@lid') ? wahaMsg.from : null) ||
@@ -361,7 +361,9 @@ async function handleWebhookRequest(request: any, reply: any) {
       try {
         const phone = normalizePhone(remoteJid);
         await evolution.sendText(restauranteId, phone, 'Desculpe, tive um probleminha. Pode repetir?');
-      } catch {}
+      } catch {
+        // Ignora falhas no fallback de erro
+      }
     }
   });
 }

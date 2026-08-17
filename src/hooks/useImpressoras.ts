@@ -125,7 +125,7 @@ export const useImpressoras = (restaurantId: string | null) => {
       } else if (updates.larguraBobina !== undefined) {
         const currentPrinter = dbPrinters.find(p => p.id === id);
         if (currentPrinter) {
-          let baseName = currentPrinter.name.replace(/\s*\(58mm\)/gi, '').replace(/\s*58mm/gi, '');
+          const baseName = currentPrinter.name.replace(/\s*\(58mm\)/gi, '').replace(/\s*58mm/gi, '');
           if (updates.larguraBobina === '58mm') {
             dbUpdates.nome = `${baseName} (58mm)`;
           } else {

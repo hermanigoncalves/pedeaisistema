@@ -22,7 +22,7 @@ const TableIcon = ({ number, status, alert }: { number: number; status: string; 
   // Cores dinâmicas para o tampo da mesa e assento das cadeiras baseadas no status
   let tableFill = "#10b981"; // Livre: verde esmeralda
   let seatFill = "#34d399";  // assentos verde claro
-  let strokeColor = "#ffffff";
+  const strokeColor = "#ffffff";
 
   if (status === 'occupied') {
     if (alert === 'bill') {

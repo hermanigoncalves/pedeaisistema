@@ -502,12 +502,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       // Ignorar pedidos com status 'dividido' (original que foi clonado)
       if (pedido.status === 'dividido') continue;
 
+      const isDivided = pedido.descricao?.includes('÷') || false;
       const items = pedido.itens.map((it, idx) => ({
         productId: `db-${pedido.id}-${idx}`,
         productName: it.nome,
         quantity: it.quantidade,
         price: it.preco,
         description: pedido.descricao,
+        pedidoId: pedido.id,
+        isDivided,
+        divisionCount: isDivided ? parseInt(pedido.descricao?.match(/÷(\d+)/)?.[1] || '1') : undefined,
+        originalPrice: isDivided ? it.preco * (parseInt(pedido.descricao?.match(/÷(\d+)/)?.[1] || '1')) : undefined,
       }));
       consumoPorMesa.set(tableId, [...(consumoPorMesa.get(tableId) ?? []), ...items]);
 
@@ -520,7 +525,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         mesaMap.set(telefone, { nome: usuario?.nome || 'Mesa', items: [] });
       }
       const comanda = mesaMap.get(telefone)!;
-      const isDivided = pedido.descricao?.includes('÷') || false;
       pedido.itens.forEach((it, idx) => {
         if (!isSystemMarkerItem(it.nome)) {
           comanda.items.push({
@@ -540,16 +544,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Garantir que usuários com check-in tenham comanda (mesmo sem pedidos)
     // Isso faz a comanda aparecer no modal assim que o cliente faz check-in
-    if (settings.billingMode === 'comanda') {
-      for (const u of usuarios) {
-        const mesaNum = parseInt(String(u.mesa_atual || '0'), 10);
-        if (mesaNum > 0 && mesasComCheckin.has(mesaNum)) {
-          const telefone = u.telefone || 'mesa';
-          if (!comandasPorMesa.has(mesaNum)) comandasPorMesa.set(mesaNum, new Map());
-          const mesaMap = comandasPorMesa.get(mesaNum)!;
-          if (!mesaMap.has(telefone)) {
-            mesaMap.set(telefone, { nome: u.nome || 'Cliente', items: [] });
-          }
+    for (const u of usuarios) {
+      const mesaNum = parseInt(String(u.mesa_atual || '0'), 10);
+      if (mesaNum > 0 && mesasComCheckin.has(mesaNum)) {
+        const telefone = u.telefone || 'mesa';
+        if (!comandasPorMesa.has(mesaNum)) comandasPorMesa.set(mesaNum, new Map());
+        const mesaMap = comandasPorMesa.get(mesaNum)!;
+        if (!mesaMap.has(telefone)) {
+          mesaMap.set(telefone, { nome: u.nome || 'Cliente', items: [] });
         }
       }
     }
@@ -580,16 +582,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           status: newStatus,
           alert: newAlert,
           consumption: consumo,
-          comandas: settings.billingMode === 'comanda'
-            ? Array.from((comandasPorMesa.get(t.id) || new Map()).entries()).map(
-                ([tel, data]) => ({
-                  telefone: tel,
-                  nome: data.nome,
-                  items: data.items,
-                  subtotal: data.items.reduce((s, i) => s + i.price * i.quantity, 0),
-                })
-              )
-            : [],
+          comandas: Array.from((comandasPorMesa.get(t.id) || new Map()).entries()).map(
+            ([tel, data]) => ({
+              telefone: tel,
+              nome: data.nome,
+              items: data.items,
+              subtotal: data.items.reduce((s, i) => s + i.price * i.quantity, 0),
+            })
+          ),
         };
       })
     );
@@ -607,7 +607,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const ids: number[] = JSON.parse(saved);
         ids.forEach(id => printedOrdersRef.current.add(id));
       }
-    } catch (e) {}
+    } catch {
+      // Ignora falhas de leitura do localStorage
+    }
   }, []);
 
   const markOrderAsPrinted = useCallback((orderId: number) => {
@@ -615,7 +617,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const ids = Array.from(printedOrdersRef.current).slice(-300); // mantém últimos 300 IDs
       localStorage.setItem('pedeai_printed_order_ids', JSON.stringify(ids));
-    } catch (e) {}
+    } catch {
+      // Ignora falhas de escrita no localStorage
+    }
   }, []);
 
   // Sincroniza o Ref inicial para evitar imprimir pedidos antigos ao carregar ou ligar o interruptor

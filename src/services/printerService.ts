@@ -39,7 +39,6 @@ export const activeBluetoothConnections: Record<string, BluetoothConnection> = {
 export const knownBluetoothDevices: Record<string, any> = {};
 
 // Mantido para compatibilidade de simulação
-let isPrinting = false;
 let printQueueChain: Promise<any> = Promise.resolve();
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 

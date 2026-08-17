@@ -140,7 +140,8 @@ class EvolutionAdapter {
       messageText = numberOrText || '';
     }
 
-    let { axiosClient, instanceName } = await this.getClientForRestaurante(restauranteId, isDelivery);
+    const { axiosClient, instanceName: defaultInstanceName } = await this.getClientForRestaurante(restauranteId, isDelivery);
+    let instanceName = defaultInstanceName;
 
     // Se o webhook forneceu explicitamente o nome da instância que recebeu a mensagem, prioriza ela!
     if (overrideInstanceName && overrideInstanceName.trim()) {

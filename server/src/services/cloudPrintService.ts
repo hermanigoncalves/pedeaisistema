@@ -17,7 +17,7 @@ function stripAccents(str: string): string {
   return str
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^\x20-\x7E\x0A\x0D]/g, '');
+    .replace(/[^\x20-\x7E\n\r]/g, '');
 }
 
 /**
@@ -149,7 +149,7 @@ function sendToNetworkPrinter(host: string, port: number, buffer: Buffer, timeou
 function parseItens(pedido: any): any[] {
   if (!pedido || !pedido.itens) return [];
 
-  let rawItens = pedido.itens;
+  const rawItens = pedido.itens;
   if (Array.isArray(rawItens)) return rawItens;
 
   if (typeof rawItens === 'object') return [rawItens];

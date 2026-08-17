@@ -139,7 +139,7 @@ export const useMensagens = (restaurantId: string | null, allowedContacts: { pho
             }
 
             // Exibir todas as conversas do restaurante sem filtros restritivos de CRM
-            let finalChats = Array.from(chatMap.values());
+            const finalChats = Array.from(chatMap.values());
 
             console.log(`[useMensagens] ${finalChats.length} conversas encontradas no Supabase.`);
             setChats(finalChats);

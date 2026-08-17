@@ -7,7 +7,7 @@ export function normalizePhone(rawJid: string): string {
   if (!rawJid) return '';
 
   // 1. Remove qualquer sufixo de dispositivo (:11, :2, etc) ANTES de separar por @
-  let cleanJid = rawJid.split(':')[0];
+  const cleanJid = rawJid.split(':')[0];
 
   // 2. Extrai apenas os dígitos
   let n = cleanJid.split('@')[0].replace(/\D/g, '');

@@ -230,7 +230,8 @@ class WahaAdapter {
       messageText = numberOrText || '';
     }
 
-    let { axiosClient, sessionName } = await this.getClientForRestaurante(restauranteId, isDelivery);
+    const { axiosClient, sessionName: defaultSessionName } = await this.getClientForRestaurante(restauranteId, isDelivery);
+    let sessionName = defaultSessionName;
 
     if (overrideSessionName && overrideSessionName.trim()) {
       sessionName = await this.getWorkingSession(overrideSessionName.trim(), axiosClient);

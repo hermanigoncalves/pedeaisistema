@@ -457,7 +457,10 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({ table, onClose }) =
                   <p className="text-muted-foreground text-center py-8">Nenhum item consumido</p>
                 ) : (
                   <div className="space-y-3">
-                    {groupedConsumption.map((item, idx) => renderItemRow(item, idx))}
+                    {groupedConsumption.map((item, idx) => {
+                      const itemPedidoId = (item as any).pedidoId || (consumption.find(c => c.productName === item.productName) as any)?.pedidoId;
+                      return renderItemRow(item, idx, true, itemPedidoId);
+                    })}
                   </div>
                 )}
               </div>

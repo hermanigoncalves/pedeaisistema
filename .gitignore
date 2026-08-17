@@ -34,5 +34,6 @@ uazapi_chats.json
 *.sln
 *.sw?
 vite.config.ts.timestamp-*
+vitest.config.ts.timestamp-*
 .vite
 

@@ -308,26 +308,8 @@ const ConversationsView: React.FC = () => {
     }
   };
 
-  // Guard against missing context or hook data
-  if (!context || !context.mensagens) {
-    console.warn('[ConversationsView] mensagens object is missing in context');
-    return (
-      <div className="flex-1 flex items-center justify-center bg-background">
-        <div className="text-center p-8 bg-secondary/20 rounded-3xl border border-border/50">
-          <p className="text-muted-foreground animate-pulse font-medium">Conectando ao servidor de mensagens...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const { mensagens } = context;
-  const { chats = [], loading = false, fetchMessages } = mensagens;
-
-  console.log('[ConversationsView] Data State:', {
-    chatsLength: chats?.length,
-    loading,
-    hasFetchMessages: typeof fetchMessages === 'function'
-  });
+  const { mensagens } = context || {};
+  const { chats = [], loading = false, fetchMessages } = mensagens || {};
 
   const selectedChat = useMemo(() => {
     if (!selectedChatId || !Array.isArray(chats)) return null;
@@ -434,6 +416,16 @@ const ConversationsView: React.FC = () => {
 
     return () => clearInterval(interval);
   }, [selectedChatId, fetchMessages]);
+
+  if (!context || !context.mensagens) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-background">
+        <div className="text-center p-8 bg-secondary/20 rounded-3xl border border-border/50">
+          <p className="text-muted-foreground animate-pulse font-medium">Conectando ao servidor de mensagens...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 overflow-hidden bg-background">

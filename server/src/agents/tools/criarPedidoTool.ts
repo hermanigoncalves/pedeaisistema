@@ -178,7 +178,7 @@ export function criarPedidoTool(userData: { mesa_atual: string; id_restaurante: 
           // Descrição esperada: "Metade Sabor 1 + Metade Sabor 2" ou "Metade Sabor 1 / Metade Sabor 2"
           const saboresDesc = descricao
             .replace(/metade\s+/gi, '')
-            .split(/[\+\/e,]/i)
+            .split(/[+/e,]/i)
             .map(s => s.trim())
             .filter(Boolean);
 
@@ -337,7 +337,7 @@ export function criarPedidoTool(userData: { mesa_atual: string; id_restaurante: 
         const subtotalCorreto = ((precoUnitarioReal || 0) * qtdFinal).toFixed(2);
         const subtotalIA = parseFloat(Subtotal || '0').toFixed(2);
 
-        let subtotalFinal = subtotalCorreto;
+        const subtotalFinal = subtotalCorreto;
         if (subtotalCorreto !== subtotalIA) {
           console.warn(`[criarPedido] ⚠️ Preço divergente para "${nomeItemCorrigido}": IA enviou R$${subtotalIA}, banco tem R$${precoUnitarioReal}/un × ${qtdFinal} = R$${subtotalCorreto}. Aplicando preço real calculado do banco.`);
         }
