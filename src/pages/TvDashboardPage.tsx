@@ -345,7 +345,10 @@ export const TvDashboardPage: React.FC = () => {
 
               {/* Conteúdo Central: Vídeos e Imagens de Propaganda em Loop */}
               <div className="flex-1 min-h-0 w-full overflow-hidden flex items-center justify-center">
-                <PropagandaCarousel />
+                <PropagandaCarousel 
+                  soundEnabled={soundEnabled} 
+                  onToggleSound={() => setSoundEnabled(true)} 
+                />
               </div>
 
               <div className="text-[11px] text-center text-slate-400 font-medium pt-1 flex-shrink-0">

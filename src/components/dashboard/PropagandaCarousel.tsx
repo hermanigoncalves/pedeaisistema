@@ -32,11 +32,20 @@ const DEFAULT_MEDIA_LIST: MediaItem[] = [
   }
 ];
 
-export const PropagandaCarousel: React.FC = () => {
+interface PropagandaCarouselProps {
+  soundEnabled?: boolean;
+  onToggleSound?: () => void;
+}
+
+export const PropagandaCarousel: React.FC<PropagandaCarouselProps> = ({
+  soundEnabled = true,
+  onToggleSound
+}) => {
   const [mediaList, setMediaList] = useState<MediaItem[]>(DEFAULT_MEDIA_LIST);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [audioBlocked, setAudioBlocked] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -45,16 +54,18 @@ export const PropagandaCarousel: React.FC = () => {
   const handleNext = () => {
     if (mediaList.length === 0) return;
     setHasError(false);
+    setAudioBlocked(false);
     setCurrentIndex((prev) => (prev + 1) % mediaList.length);
   };
 
   const handlePrev = () => {
     if (mediaList.length === 0) return;
     setHasError(false);
+    setAudioBlocked(false);
     setCurrentIndex((prev) => (prev - 1 + mediaList.length) % mediaList.length);
   };
 
-  // Gerenciamento de ciclo para Imagens e Vídeos
+  // Gerenciamento de ciclo para Imagens, Vídeos e 3D
   useEffect(() => {
     if (!currentMedia || !isPlaying) return;
 
@@ -69,14 +80,20 @@ export const PropagandaCarousel: React.FC = () => {
         handleNext();
       }, duration);
     } else if (currentMedia.type === 'video') {
-      // Para vídeo, tenta dar play automático com som mudo
+      // Para vídeo com som liberado
       if (videoRef.current) {
         videoRef.current.currentTime = 0;
-        videoRef.current.play().catch(() => {
-          // Se o navegador bloquear autoplay, avança após fallback
-          timerRef.current = setTimeout(() => {
-            handleNext();
-          }, 10000);
+        videoRef.current.muted = !soundEnabled;
+        
+        videoRef.current.play().catch((err) => {
+          console.warn('[Propaganda] Autoplay com som bloqueado pelo navegador, tentando mudo:', err);
+          if (soundEnabled && videoRef.current) {
+            videoRef.current.muted = true;
+            setAudioBlocked(true);
+            videoRef.current.play().catch(() => {
+              timerRef.current = setTimeout(() => handleNext(), 10000);
+            });
+          }
         });
       }
     }
@@ -86,7 +103,18 @@ export const PropagandaCarousel: React.FC = () => {
         clearTimeout(timerRef.current);
       }
     };
-  }, [currentIndex, isPlaying, currentMedia]);
+  }, [currentIndex, isPlaying, currentMedia, soundEnabled]);
+
+  // Atualizar mudo do vídeo ao alternar soundEnabled
+  useEffect(() => {
+    if (videoRef.current && currentMedia?.type === 'video') {
+      videoRef.current.muted = !soundEnabled;
+      if (soundEnabled) {
+        setAudioBlocked(false);
+        videoRef.current.play().catch(() => {});
+      }
+    }
+  }, [soundEnabled, currentMedia]);
 
   // Se o vídeo terminar naturalmente, avança para o próximo
   const handleVideoEnded = () => {
@@ -101,6 +129,18 @@ export const PropagandaCarousel: React.FC = () => {
     timerRef.current = setTimeout(() => {
       handleNext();
     }, 3000);
+  };
+
+  // Desbloquear áudio com clique do usuário
+  const handleUnmuteClick = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = false;
+      setAudioBlocked(false);
+      videoRef.current.play().catch(() => {});
+    }
+    if (onToggleSound && !soundEnabled) {
+      onToggleSound();
+    }
   };
 
   // Fallback se não houver mídias válidas
@@ -121,7 +161,10 @@ export const PropagandaCarousel: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 min-h-0 w-full h-full max-h-[calc(100%-48px)] relative rounded-xl overflow-hidden bg-zinc-950 my-1.5 flex items-center justify-center shadow-inner group">
+    <div 
+      onClick={handleUnmuteClick}
+      className="flex-1 min-h-0 w-full h-full max-h-[calc(100%-48px)] relative rounded-xl overflow-hidden bg-zinc-950 my-1.5 flex items-center justify-center shadow-inner group cursor-pointer"
+    >
       {/* Visualizador 3D do Robô PedeAí Delivery */}
       {currentMedia.type === '3d' && (
         <div className="w-full h-full p-2 flex items-center justify-center bg-gradient-to-b from-zinc-900 via-zinc-950 to-zinc-900">
@@ -129,14 +172,14 @@ export const PropagandaCarousel: React.FC = () => {
         </div>
       )}
 
-      {/* Player de Vídeo */}
+      {/* Player de Vídeo com Áudio Liberado */}
       {currentMedia.type === 'video' && (
         <video
           ref={videoRef}
           key={currentMedia.src}
           src={currentMedia.src}
           autoPlay
-          muted
+          muted={!soundEnabled}
           playsInline
           onEnded={handleVideoEnded}
           onError={handleMediaError}
