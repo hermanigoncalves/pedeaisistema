@@ -537,34 +537,34 @@ export const TvDashboardPage: React.FC = () => {
             {/* 5. CARD SUPORTE WHATSAPP COM QR CODE (Col 2/12) */}
             <div className="col-span-2 bg-[#111827]/90 rounded-2xl border border-slate-800 shadow-lg p-3 sm:p-4 flex flex-col justify-between items-center text-center backdrop-blur-md">
               <div>
-                <h3 className="text-xs font-black text-white leading-tight tracking-wide flex items-center justify-center gap-1.5">
-                  <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                <h3 className="text-sm font-black text-white leading-tight tracking-wide flex items-center justify-center gap-1.5">
+                  <MessageSquare className="w-4 h-4 text-emerald-400" />
                   Suporte WhatsApp
                 </h3>
-                <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">
+                <span className="text-[11px] text-slate-400 block mt-0.5 font-medium">
                   Escaneie para conversar
                 </span>
               </div>
 
-              {/* QR Code Container com alto contraste para leitura rápida em tela */}
-              <div className="p-2 bg-white rounded-2xl shadow-[0_0_20px_rgba(16,185,129,0.25)] border-2 border-emerald-500/60 my-auto flex flex-col items-center justify-center transition-all duration-300">
+              {/* QR Code Container aumentado em 50% para leitura fácil e rápida à distância */}
+              <div className="p-2.5 bg-white rounded-2xl shadow-[0_0_25px_rgba(16,185,129,0.35)] border-2 border-emerald-400 my-auto flex flex-col items-center justify-center transition-all duration-300">
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent('https://wa.me/5533988123747')}&bgcolor=ffffff&color=000000&margin=2`}
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=360x360&data=${encodeURIComponent('https://wa.me/5533988123747')}&bgcolor=ffffff&color=000000&margin=2`}
                   alt="QR Code WhatsApp Suporte"
-                  className="w-20 h-20 sm:w-24 sm:h-24 object-contain rounded-lg select-none"
+                  className="w-32 h-32 sm:w-36 sm:h-36 md:w-40 md:h-40 object-contain rounded-xl select-none"
                   loading="eager"
                 />
               </div>
 
               <div className="space-y-0.5 w-full">
-                <span className="text-[11px] font-black text-emerald-300 block tracking-wide">
+                <span className="text-xs sm:text-sm font-black text-emerald-300 block tracking-wide">
                   Estamos aqui! 👋
                 </span>
-                <span className="text-[10px] font-mono font-bold text-slate-300 block">
+                <span className="text-[11px] sm:text-xs font-mono font-bold text-slate-200 block">
                   WhatsApp: (33) 98812-3747
                 </span>
-                <div className="text-[10px] text-emerald-400 font-bold flex items-center justify-center gap-1.5 pt-0.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <div className="text-[11px] text-emerald-400 font-bold flex items-center justify-center gap-1.5 pt-0.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#10b981]"></span>
                   <span>Online</span>
                 </div>
               </div>
