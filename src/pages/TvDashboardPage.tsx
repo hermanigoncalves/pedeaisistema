@@ -135,66 +135,108 @@ export const TvDashboardPage: React.FC = () => {
   const mesasOcupadas = tables.filter(t => t.status === 'occupied').length;
   const mesasLivres = totalMesas - mesasOcupadas;
 
-  // Renderizador do ícone de mesa estilizado conforme mockup
+  // Componente SVG idêntico ao TableIcon do sistema principal
+  const renderTableIcon = (number: number, status: string, alert?: string | null) => {
+    let tableFill = "#10b981"; // Livre: verde esmeralda
+    let seatFill = "#34d399";  // assentos verde claro
+    const strokeColor = "#ffffff";
+
+    if (status === 'occupied') {
+      if (alert === 'bill') {
+        tableFill = "#3b82f6"; // Pedido de conta: azul
+        seatFill = "#60a5fa";
+      } else {
+        tableFill = "#ef4444"; // Ocupada: vermelho
+        seatFill = "#f87171";
+      }
+    }
+
+    if (alert === 'waiter') {
+      tableFill = "#f59e0b"; // Chamar garçom: amarelo
+      seatFill = "#fbbf24";
+    }
+
+    return (
+      <svg viewBox="0 0 120 120" className="w-full h-full max-w-[70px] drop-shadow-md select-none transition-all duration-300">
+        <ellipse cx="60" cy="92" rx="30" ry="8" fill="rgba(0, 0, 0, 0.08)" />
+        <line x1="50" y1="75" x2="44" y2="95" stroke="#374151" strokeWidth="4.5" strokeLinecap="round" />
+        <line x1="60" y1="75" x2="60" y2="98" stroke="#1f2937" strokeWidth="4.5" strokeLinecap="round" />
+        <line x1="70" y1="75" x2="76" y2="95" stroke="#374151" strokeWidth="4.5" strokeLinecap="round" />
+        <g>
+          <line x1="45" y1="35" x2="42" y2="20" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" />
+          <line x1="53" y1="35" x2="55" y2="20" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" />
+          <rect x="42" y="22" width="16" height="15" rx="4" fill="#374151" />
+          <rect x="45" y="25" width="10" height="9" rx="2" fill={seatFill} />
+        </g>
+        <g>
+          <line x1="67" y1="35" x2="65" y2="20" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" />
+          <line x1="75" y1="35" x2="78" y2="20" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" />
+          <rect x="62" y="22" width="16" height="15" rx="4" fill="#374151" />
+          <rect x="65" y="25" width="10" height="9" rx="2" fill={seatFill} />
+        </g>
+        <ellipse cx="60" cy="58" rx="35" ry="25" fill={tableFill} stroke={strokeColor} strokeWidth="2.5" />
+        <ellipse cx="60" cy="58" rx="18" ry="13" fill="#ffffff" stroke="#e5e7eb" strokeWidth="1" />
+        <ellipse cx="60" cy="58" rx="14" ry="10" fill="none" stroke="#f3f4f6" strokeWidth="1" />
+        <path d="M 85 52 C 85 50 87 50 87 52 L 87 62 L 85 62 Z" fill="#ffffff" opacity="0.9" />
+        <line x1="86" y1="60" x2="86" y2="65" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" opacity="0.9" />
+        <path d="M 31 52 L 31 56 M 33 52 L 33 56 M 35 52 L 35 56" stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" opacity="0.9" />
+        <path d="M 31 56 L 35 56 L 33 56 L 33 64" fill="none" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" opacity="0.9" />
+        <g>
+          <line x1="30" y1="78" x2="26" y2="98" stroke="#1f2937" strokeWidth="3" strokeLinecap="round" />
+          <line x1="40" y1="78" x2="43" y2="98" stroke="#374151" strokeWidth="3" strokeLinecap="round" />
+          <path d="M 23 62 C 23 52, 37 52, 37 62 L 37 76 C 37 78, 23 78, 23 76 Z" fill="#1f2937" />
+          <path d="M 26 64 C 26 57, 34 57, 34 64 L 34 74 C 34 76, 26 76, 26 74 Z" fill={seatFill} />
+        </g>
+        <g>
+          <line x1="80" y1="78" x2="77" y2="98" stroke="#374151" strokeWidth="3" strokeLinecap="round" />
+          <line x1="90" y1="78" x2="94" y2="98" stroke="#1f2937" strokeWidth="3" strokeLinecap="round" />
+          <path d="M 83 62 C 83 52, 97 52, 97 62 L 97 76 C 97 78, 83 78, 83 76 Z" fill="#1f2937" />
+          <path d="M 86 64 C 86 57, 94 57, 94 64 L 94 74 C 94 76, 86 76, 86 74 Z" fill={seatFill} />
+        </g>
+        <text x="60" y="63" textAnchor="middle" fontSize="17" fontWeight="900" fill="#1f2937" fontFamily="sans-serif">
+          {number}
+        </text>
+      </svg>
+    );
+  };
+
+  // Renderizador do card de mesa no estilo exato do sistema principal
   const renderTableCard = (table: Table) => {
     const isOccupied = table.status === 'occupied';
     const isBill = table.alert === 'bill';
     const isWaiter = table.alert === 'waiter';
 
-    let cardBorder = 'border-emerald-700/60 bg-emerald-950/10 text-emerald-800';
-    let iconColor = '#047857';
-    let statusText = 'Livre';
-    let statusTextColor = 'text-emerald-700 font-medium';
+    let cardBgClass = 'bg-[#f0fdf4] border-[#86efac] text-[#15803d]'; // Verde claro elegante
+    let statusLabel = 'Livre';
+    let statusColor = 'text-[#16a34a]';
 
     if (isOccupied) {
       if (isBill) {
-        cardBorder = 'border-blue-500 bg-blue-500/10 text-blue-800 animate-pulse';
-        iconColor = '#2563eb';
-        statusText = 'Pedindo Conta';
-        statusTextColor = 'text-blue-700 font-bold';
+        cardBgClass = 'bg-blue-50 border-blue-300 text-blue-800 animate-pulse';
+        statusLabel = 'Conta';
+        statusColor = 'text-blue-700 font-bold';
       } else if (isWaiter) {
-        cardBorder = 'border-amber-500 bg-amber-500/10 text-amber-800 animate-bounce';
-        iconColor = '#d97706';
-        statusText = 'Chamando Garçom';
-        statusTextColor = 'text-amber-700 font-bold';
+        cardBgClass = 'bg-amber-50 border-amber-300 text-amber-800 animate-bounce';
+        statusLabel = 'Garçom';
+        statusColor = 'text-amber-700 font-bold';
       } else {
-        cardBorder = 'border-red-400 bg-red-50 text-red-800';
-        iconColor = '#dc2626';
-        statusText = 'Ocupada';
-        statusTextColor = 'text-red-600 font-semibold';
+        cardBgClass = 'bg-[#fef2f2] border-[#fca5a5] text-[#dc2626]';
+        statusLabel = 'Ocupada';
+        statusColor = 'text-[#dc2626] font-bold';
       }
     }
 
     return (
       <div 
         key={table.id}
-        className={`rounded-2xl border-2 p-3 sm:p-4 flex flex-col items-center justify-between transition-all duration-200 shadow-sm min-w-[90px] max-w-[130px] aspect-[4/5] ${cardBorder}`}
+        className={`rounded-2xl border p-2.5 flex flex-col items-center justify-between transition-all duration-200 shadow-sm min-w-[95px] max-w-[125px] aspect-[4/4.5] ${cardBgClass}`}
       >
-        {/* Ícone de Mesa com visual do mockup */}
-        <div className="w-12 h-10 flex items-center justify-center my-auto">
-          <svg viewBox="0 0 64 48" className="w-full h-full drop-shadow-sm">
-            {/* Cadeira Esquerda */}
-            <rect x="6" y="10" width="8" height="24" rx="2" fill={iconColor} opacity="0.85" />
-            <line x1="10" y1="34" x2="10" y2="44" stroke={iconColor} strokeWidth="3" strokeLinecap="round" />
-            {/* Cadeira Direita */}
-            <rect x="50" y="10" width="8" height="24" rx="2" fill={iconColor} opacity="0.85" />
-            <line x1="54" y1="34" x2="54" y2="44" stroke={iconColor} strokeWidth="3" strokeLinecap="round" />
-            {/* Tampo da Mesa */}
-            <rect x="12" y="14" width="40" height="10" rx="3" fill={iconColor} />
-            {/* Pernas da Mesa */}
-            <line x1="20" y1="24" x2="16" y2="44" stroke={iconColor} strokeWidth="3.5" strokeLinecap="round" />
-            <line x1="44" y1="24" x2="48" y2="44" stroke={iconColor} strokeWidth="3.5" strokeLinecap="round" />
-          </svg>
+        <div className="w-full flex justify-center items-center py-1">
+          {renderTableIcon(table.number || table.id, table.status, table.alert)}
         </div>
 
-        {/* Número da Mesa */}
-        <span className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">
-          {table.number}
-        </span>
-
-        {/* Status Text */}
-        <span className={`text-[11px] sm:text-xs uppercase tracking-wide ${statusTextColor}`}>
-          {statusText}
+        <span className={`text-[11px] sm:text-xs font-bold tracking-wide capitalize ${statusColor}`}>
+          {statusLabel}
         </span>
       </div>
     );
