@@ -237,6 +237,42 @@ class WahaAdapter {
   }
 
   /**
+   * Verifica se o contato existe no WhatsApp e resolve o LID no WAHA.
+   * Isso força o container WAHA (especialmente engine GOWS/Baileys) a buscar o LID
+   * oficial nos servidores do WhatsApp antes de enviar mensagem para contatos novos.
+   */
+  async checkContactExists(
+    number: string,
+    sessionName: string,
+    axiosClient: AxiosInstance,
+  ): Promise<{ exists: boolean; chatId?: string } | null> {
+    const cleanNumber = number.split('@')[0].replace(/\D/g, '');
+    const endpoints = [
+      `/api/contacts/check-exists?phone=${cleanNumber}&session=${sessionName}`,
+      `/api/contacts/check-number-status?phone=${cleanNumber}&session=${sessionName}`,
+      `/api/${sessionName}/contacts/check-exists?phone=${cleanNumber}`,
+      `/api/contacts/check-exists?chatId=${cleanNumber}%40c.us&session=${sessionName}`,
+    ];
+
+    for (const ep of endpoints) {
+      try {
+        const res = await axiosClient.get(ep);
+        if (res.data) {
+          const numberExists = res.data.numberExists ?? res.data.exists ?? (res.data.isBusiness !== undefined);
+          const resolvedChatId = res.data.chatId || res.data.jid || (numberExists ? `${cleanNumber}@c.us` : undefined);
+          if (numberExists && resolvedChatId) {
+            console.log(`[WAHA API] 🔍 Contato verificado com sucesso via ${ep}: ${resolvedChatId}`);
+            return { exists: true, chatId: resolvedChatId };
+          }
+        }
+      } catch {
+        // Tenta o próximo endpoint
+      }
+    }
+    return null;
+  }
+
+  /**
    * Envia mensagem de texto via WAHA (POST /api/sendText).
    */
   async sendText(
@@ -290,7 +326,30 @@ class WahaAdapter {
           errMsg.includes('Contact not found') ||
           err.response?.status === 500;
 
-        // 2. Se houver erro de LID / 500 / contato não encontrado, tenta TODOS os outros formatos candidatos
+        // 2. Se falhar com no LID found, tenta verificar existência do contato para forçar o WAHA a sincronizar o LID
+        if (isLidOrNotFoundError) {
+          console.warn(`[WAHA API] ⚠️ Contato ${primaryChatId} retornou erro de LID. Verificando cadastro no WhatsApp...`);
+          
+          for (const cand of candidateChatIds) {
+            const checkResult = await this.checkContactExists(cand, sessionName, axiosClient);
+            if (checkResult?.exists && checkResult.chatId) {
+              try {
+                console.log(`[WAHA API] 🔄 Tentando enviar para o chatId verificado: ${checkResult.chatId}...`);
+                await axiosClient.post('/api/sendText', {
+                  session: sessionName,
+                  chatId: checkResult.chatId,
+                  text: messageText,
+                });
+                console.log(`[WAHA API] ✅ Texto enviado com sucesso após resolução de LID para ${checkResult.chatId}`);
+                return;
+              } catch (retryErr: any) {
+                console.warn(`[WAHA API] ⚠️ Envio para ${checkResult.chatId} falhou após verificação:`, retryErr.response?.data || retryErr.message);
+              }
+            }
+          }
+        }
+
+        // 3. Se ainda não enviou, tenta TODOS os outros formatos candidatos
         if (isLidOrNotFoundError && candidateChatIds.length > 1) {
           for (const altChatId of candidateChatIds) {
             if (altChatId === primaryChatId) continue;
@@ -309,7 +368,7 @@ class WahaAdapter {
           }
         }
 
-        // 3. Se deu erro de sessão inexistente, força atualização de cache e tenta com a sessão ativa
+        // 4. Se deu erro de sessão inexistente, força atualização de cache e tenta com a sessão ativa
         if (errObj?.error && typeof errObj.error === 'string' && errObj.error.includes('does not exist')) {
           console.warn(`[WAHA API] ⚠️ Sessão '${sessionName}' não encontrada. Buscando sessões ativas do container...`);
           const resolved = await this.getWorkingSession(sessionName, axiosClient, true);
@@ -325,7 +384,11 @@ class WahaAdapter {
           }
         }
 
-        console.error(`[WAHA API] ❌ Erro ao enviar texto para ${primaryChatId} (formatos tentados: ${candidateChatIds.join(', ')}):`, errObj || err.message);
+        if (isLidOrNotFoundError) {
+          console.error(`[WAHA API] ❌ Número não encontrado nos servidores do WhatsApp: ${number} (verifique se o número possui WhatsApp ativo ou se foi digitado corretamente)`);
+        } else {
+          console.error(`[WAHA API] ❌ Erro ao enviar texto para ${primaryChatId} (formatos tentados: ${candidateChatIds.join(', ')}):`, errObj || err.message);
+        }
         throw err;
       }
     }, `sendText(${primaryChatId})`);
