@@ -125,7 +125,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
           .from('ConfiguracoesGlobais')
           .select('prompt_geral, prompt_vendas, prompt_servico')
           .eq('id', 1)
-          .single();
+          .maybeSingle();
         if (data) {
           setGlobalPromptVendas(data.prompt_vendas || '');
           setGlobalPromptServico(data.prompt_servico || '');

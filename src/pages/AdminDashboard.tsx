@@ -93,7 +93,7 @@ const AdminDashboard: React.FC = () => {
                 .from('ConfiguracoesGlobais' as any)
                 .select('prompt_geral, prompt_vendas, prompt_servico')
                 .eq('id', 1)
-                .single();
+                .maybeSingle();
             if (error) {
                 console.warn('Erro ao ler prompts globais, tabela pode não existir ou estar vazia:', error.message);
             } else {
