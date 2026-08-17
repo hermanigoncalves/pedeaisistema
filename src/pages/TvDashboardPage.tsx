@@ -201,132 +201,59 @@ export const TvDashboardPage: React.FC = () => {
   };
 
   return (
-    <div className="h-screen w-screen flex bg-[#f0f4f9] text-slate-800 font-sans overflow-hidden select-none">
+    <div className="h-screen w-screen flex flex-col bg-[#f0f4f9] text-slate-800 font-sans overflow-hidden select-none">
       
       {/* ─────────────────────────────────────────────────────────────
-          1. SIDEBAR ESQUERDA (ESTILO MOCKUP GREENPLATE CENTRAL)
+          1. HEADER SUPERIOR FULL-WIDTH COM LOGO, RELÓGIO E AÇÕES
           ───────────────────────────────────────────────────────────── */}
-      <aside className="w-64 bg-[#e8eef6] border-r border-slate-300/70 flex flex-col justify-between p-4 flex-shrink-0">
-        <div className="space-y-6">
-          {/* Brand / Logo */}
-          <div className="flex items-center gap-3 px-2">
-            <div className="w-9 h-9 rounded-xl bg-emerald-700 flex items-center justify-center text-white shadow-md">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <h1 className="text-base font-black text-emerald-900 leading-tight">
-                {restaurant?.nome || settings.restaurantName || 'PedeAí Central'}
-              </h1>
-              <p className="text-[11px] text-slate-500 font-medium tracking-wide">
-                Painel TV & Terminal
-              </p>
-            </div>
+      <header className="h-16 border-b border-slate-200 px-6 flex items-center justify-between bg-white flex-shrink-0 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-emerald-700 flex items-center justify-center text-white shadow-md">
+            <Sparkles className="w-5 h-5" />
           </div>
-
-          {/* Botão Novo Pedido */}
-          <button 
-            onClick={() => toast.info('Painel configurado em modo TV / Monitoramento em Tempo Real')}
-            className="w-full bg-[#065f46] hover:bg-[#047857] text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Novo Pedido</span>
-          </button>
-
-          {/* Menu de Navegação */}
-          <nav className="space-y-1.5">
-            <button 
-              onClick={() => setActiveMenu('dashboard')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-                activeMenu === 'dashboard'
-                  ? 'bg-[#065f46] text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-200/70 hover:text-slate-900'
-              }`}
-            >
-              <LayoutDashboard className="w-5 h-5" />
-              <span>Dashboard</span>
-            </button>
-
-            <button 
-              onClick={() => setActiveMenu('orders')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-                activeMenu === 'orders'
-                  ? 'bg-[#065f46] text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-200/70 hover:text-slate-900'
-              }`}
-            >
-              <ShoppingBag className="w-5 h-5" />
-              <span>Pedidos ({cozinhaOrders.length + barOrders.length})</span>
-            </button>
-
-            <button 
-              onClick={() => setActiveMenu('kitchen')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-                activeMenu === 'kitchen'
-                  ? 'bg-[#065f46] text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-200/70 hover:text-slate-900'
-              }`}
-            >
-              <ChefHat className="w-5 h-5" />
-              <span>Cozinha ({cozinhaOrders.length})</span>
-            </button>
-
-            <button 
-              onClick={() => setActiveMenu('bar')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-                activeMenu === 'bar'
-                  ? 'bg-[#065f46] text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-200/70 hover:text-slate-900'
-              }`}
-            >
-              <Wine className="w-5 h-5" />
-              <span>Bar ({barOrders.length})</span>
-            </button>
-          </nav>
-        </div>
-
-        {/* Rodapé da Sidebar: Fullscreen e Modo TV */}
-        <div className="pt-4 border-t border-slate-300/80 space-y-2">
-          <button 
-            onClick={toggleFullscreen}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200/70 transition-all"
-          >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-            <span>{isFullscreen ? 'Sair da Tela Cheia' : 'Modo TV (Tela Cheia)'}</span>
-          </button>
-        </div>
-      </aside>
-
-      {/* ─────────────────────────────────────────────────────────────
-          2. ÁREA PRINCIPAL COM HEADER E GRID 4 QUADRANTES
-          ───────────────────────────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col overflow-hidden bg-white">
-        
-        {/* Header Superior */}
-        <header className="h-16 border-b border-slate-200 px-6 flex items-center justify-between bg-white flex-shrink-0">
           <div>
             <h2 className="text-xl font-black text-[#065f46] tracking-tight">
               {restaurant?.nome || 'RestoFlow Manager • PedeAí'}
             </h2>
+            <p className="text-[10px] text-slate-400 font-medium tracking-wide">
+              Painel TV • Monitoramento em Tempo Real
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          {/* Relógio Digital da TV */}
+          <div className="bg-[#f0fdf4] border border-[#bbf7d0] px-4 py-1.5 rounded-full font-mono text-sm font-black text-[#15803d]">
+            {currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </div>
 
-          <div className="flex items-center gap-4">
-            {/* Relógio Digital da TV */}
-            <div className="bg-[#f0fdf4] border border-[#bbf7d0] px-4 py-1.5 rounded-full font-mono text-sm font-black text-[#15803d]">
-              {currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-            </div>
+          {/* Som */}
+          <button
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            className={`p-2 rounded-full border transition-all ${
+              soundEnabled ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-slate-100 border-slate-200 text-slate-400'
+            }`}
+            title={soundEnabled ? 'Som Ativo' : 'Som Mudo'}
+          >
+            {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+          </button>
 
-            {/* Som */}
-            <button
-              onClick={() => setSoundEnabled(!soundEnabled)}
-              className={`p-2 rounded-full border transition-all ${
-                soundEnabled ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-slate-100 border-slate-200 text-slate-400'
-              }`}
-              title={soundEnabled ? 'Som Ativo' : 'Som Mudo'}
-            >
-              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-            </button>
-          </div>
-        </header>
+          {/* Botão Tela Cheia */}
+          <button 
+            onClick={toggleFullscreen}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-200 transition-all"
+            title="Alternar Tela Cheia"
+          >
+            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            <span className="hidden sm:inline">{isFullscreen ? 'Sair da Tela Cheia' : 'Tela Cheia'}</span>
+          </button>
+        </div>
+      </header>
+
+      {/* ─────────────────────────────────────────────────────────────
+          2. ÁREA PRINCIPAL COM GRID DE 4 QUADRANTES
+          ───────────────────────────────────────────────────────────── */}
+      <main className="flex-1 flex flex-col overflow-hidden bg-white">
 
         {/* Grid de Conteúdo Principal (2 Linhas x 2 Colunas + Colunas Auxiliares) */}
         <div className="flex-1 p-5 overflow-hidden flex flex-col gap-4 bg-[#f8fafc]">
