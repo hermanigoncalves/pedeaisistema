@@ -306,8 +306,8 @@ export const TvDashboardPage: React.FC = () => {
             </div>
 
             {/* 2. CARD PROMOS / RESUMO EM TEMPO REAL (Col 4/12) */}
-            <div className="col-span-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col justify-between">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="col-span-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col justify-between overflow-hidden min-h-0 max-h-full">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100 flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <span className="text-emerald-700 font-black">📢</span>
                   <h3 className="text-base font-black text-slate-800">
@@ -344,9 +344,11 @@ export const TvDashboardPage: React.FC = () => {
               </div>
 
               {/* Conteúdo Central: Vídeos e Imagens de Propaganda em Loop */}
-              <PropagandaCarousel />
+              <div className="flex-1 min-h-0 w-full overflow-hidden flex items-center justify-center">
+                <PropagandaCarousel />
+              </div>
 
-              <div className="text-[11px] text-center text-slate-400 font-medium">
+              <div className="text-[11px] text-center text-slate-400 font-medium pt-1 flex-shrink-0">
                 PedeAí Digital • Atendimento Inteligente
               </div>
             </div>

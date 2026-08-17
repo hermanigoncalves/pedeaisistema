@@ -114,7 +114,7 @@ export const PropagandaCarousel: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 relative rounded-xl overflow-hidden bg-black/90 my-2 flex items-center justify-center shadow-inner group">
+    <div className="flex-1 min-h-0 w-full h-full max-h-[calc(100%-48px)] relative rounded-xl overflow-hidden bg-zinc-950 my-1.5 flex items-center justify-center shadow-inner group">
       {/* Player de Vídeo */}
       {currentMedia.type === 'video' && (
         <video
@@ -126,7 +126,7 @@ export const PropagandaCarousel: React.FC = () => {
           playsInline
           onEnded={handleVideoEnded}
           onError={handleMediaError}
-          className="w-full h-full object-contain"
+          className="w-full h-full max-h-full max-w-full object-contain pointer-events-none"
         />
       )}
 
@@ -137,7 +137,7 @@ export const PropagandaCarousel: React.FC = () => {
           src={currentMedia.src}
           alt={currentMedia.title || 'Propaganda'}
           onError={handleMediaError}
-          className="w-full h-full object-contain transition-all duration-500 animate-fade-in"
+          className="w-full h-full max-h-full max-w-full object-contain transition-all duration-500 animate-fade-in pointer-events-none"
         />
       )}
 
