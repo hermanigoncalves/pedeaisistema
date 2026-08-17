@@ -1,21 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { QrCode, Play, Pause, SkipForward, Film, Image as ImageIcon } from 'lucide-react';
+import { QrCode, Film, Image as ImageIcon, Sparkles, Box } from 'lucide-react';
+import RobotMascot3D from '@/components/3d/RobotMascot3D';
 
 export interface MediaItem {
   id: string;
-  type: 'video' | 'image';
-  src: string;
+  type: 'video' | 'image' | '3d';
+  src?: string;
   title?: string;
-  durationSeconds?: number; // Para imagens (padrão: 8 segundos)
+  durationSeconds?: number; // Para imagens e 3D (padrão: 8 a 10 segundos)
 }
 
-// Lista padrão de mídias da pasta /propaganda/
+// Lista padrão de mídias da pasta /propaganda/ + Robô 3D PedeAí Delivery
 const DEFAULT_MEDIA_LIST: MediaItem[] = [
   {
     id: 'video-1',
     type: 'video',
     src: '/propaganda/WhatsApp%20Video%202026-08-17%20at%2011.29.58.mp4',
     title: 'Vídeo Promocional 1'
+  },
+  {
+    id: '3d-robot-mascot',
+    type: '3d',
+    title: 'Robô PedeAí Delivery 3D',
+    durationSeconds: 10
   },
   {
     id: 'video-2',
@@ -55,8 +62,8 @@ export const PropagandaCarousel: React.FC = () => {
       clearTimeout(timerRef.current);
     }
 
-    if (currentMedia.type === 'image') {
-      // Se for imagem, exibe por X segundos e avança para a próxima
+    if (currentMedia.type === 'image' || currentMedia.type === '3d') {
+      // Se for imagem ou 3D, exibe por X segundos e avança para a próxima
       const duration = (currentMedia.durationSeconds || 8) * 1000;
       timerRef.current = setTimeout(() => {
         handleNext();
@@ -115,6 +122,13 @@ export const PropagandaCarousel: React.FC = () => {
 
   return (
     <div className="flex-1 min-h-0 w-full h-full max-h-[calc(100%-48px)] relative rounded-xl overflow-hidden bg-zinc-950 my-1.5 flex items-center justify-center shadow-inner group">
+      {/* Visualizador 3D do Robô PedeAí Delivery */}
+      {currentMedia.type === '3d' && (
+        <div className="w-full h-full p-2 flex items-center justify-center bg-gradient-to-b from-zinc-900 via-zinc-950 to-zinc-900">
+          <RobotMascot3D modelUrl="/models/PedeAI_garcom_robo.glb" showBadge={true} />
+        </div>
+      )}
+
       {/* Player de Vídeo */}
       {currentMedia.type === 'video' && (
         <video
@@ -153,6 +167,8 @@ export const PropagandaCarousel: React.FC = () => {
         <div className="flex items-center gap-1.5 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-full text-[10px] text-white/90">
           {currentMedia.type === 'video' ? (
             <Film className="w-3 h-3 text-emerald-400" />
+          ) : currentMedia.type === '3d' ? (
+            <Box className="w-3 h-3 text-emerald-400 animate-spin" />
           ) : (
             <ImageIcon className="w-3 h-3 text-blue-400" />
           )}
