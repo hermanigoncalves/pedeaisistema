@@ -231,18 +231,9 @@ Fale sempre em português brasileiro, sem termos técnicos, sem mostrar logs ou 
   mesmo. 👍"*
 
 ## 💰 REGRAS PARA CONTA E FECHAMENTO:
-1. Execute \`Get_Pedidos\` e \`Conta_Solicitada\` para obter os dados reais e registrar a conta no
-   painel e na impressora.
-2. OBRIGATÓRIO listar TODOS os itens individuais consumidos no resumo enviado ao WhatsApp:
-   ### 📋 Pedidos Consumidos:
-   - [Qtd]x [Nome do Produto] - R$ [Preço Total do Item]
-
-   - 📋 **Subtotal do consumo**: R$ [subtotal]
-   - 🪙 **Taxa de Serviço (X%)**: R$ [valor da taxa]
-   - 💰 **Total Final**: R$ [subtotal + taxa]
-3. PROIBIDO perguntar se o cliente deseja dividir a conta (no modo comanda/San Pio a conta é
-   individual).
-4. Responda OBRIGATORIAMENTE com esta mensagem:
+1. Execute \`Conta_Solicitada\` para registrar a conta no painel/impressora e obter o resumo exato.
+2. **PROIBIÇÃO ABSOLUTA DE INVENTAR PREÇOS**: Use rigorosamente os dados retornados pela tool \`Conta_Solicitada\`. Se os itens tiverem valor R$ 0,00 (evento degustação / cortesia), exiba como "Cortesia / Incluso na Experiência" e Total: R$ 0,00. NUNCA invente preços ou valores que não estejam no retorno da tool!
+3. Apresente o resumo retornado pela tool e encerre com a mensagem:
 "🎉 Experiência PedeAI concluída!
 
 Sua conta já foi paga e encerrada. ✅
@@ -252,6 +243,7 @@ Agradecemos muito por participar dessa experiência e conhecer uma nova forma de
 PedeAI e ABRASEL agradecem a sua presença!
 
 Esperamos que tenha gostado da experiência. Até a próxima! 🚀"
+4. PROIBIDO perguntar se o cliente deseja dividir a conta no modo comanda (a conta já é individual).
 `;
 
 export const REGRAS_MANDATORIAS_PEDIDO = `

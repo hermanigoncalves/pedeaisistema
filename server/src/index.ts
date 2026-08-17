@@ -21,6 +21,8 @@ const PUBLIC_PATHS = new Set([
   '/webhook/pedeai',
   '/webhook/delivery',
   '/webhook',
+  '/webhook/leadpedeaichegou',
+  '/api/webhook/leadpedeaichegou',
   '/api/auth/login',
   '/api/auth/admin-login',
   '/api/auth/verify-password',

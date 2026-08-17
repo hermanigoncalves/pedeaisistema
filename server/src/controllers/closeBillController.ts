@@ -114,27 +114,12 @@ export function registerCloseBillRoutes(app: FastifyInstance) {
       }
 
       // Responde com sucesso ao frontend após a persistência segura no banco
-      reply.code(200).send({ success: true });
-
-      // 2. Enviar a mensagem para o WhatsApp em background de forma assíncrona (se não for skipWhatsApp)
-      if (!payload.skipWhatsApp && payload.telefone && payload.telefone !== 'Não informado' && payload.telefone !== 'mesa') {
-        const couvertLine = payload.couvert && parseFloat(payload.couvert) > 0
-          ? `Couvert Artístico: R$ ${parseFloat(payload.couvert).toFixed(2).replace('.', ',')}\n`
-          : '';
-        const taxaLine = payload.taxa && parseFloat(payload.taxa) > 0
-          ? `Taxa de Serviço: R$ ${parseFloat(payload.taxa).toFixed(2).replace('.', ',')}\n`
-          : '';
-
-        const mensagem = `Olá, ${payload.nome}! 👋\n\n🎉 *Experiência PedeAI concluída!*\n\nSua conta já foi paga e encerrada. ✅\n\n---\n📋 *RESUMO DO CONSUMO*\n${payload.itens}\n\n---\n💰 *DETALHES DA CONTA*\nSubtotal: R$ ${parseFloat(payload.subtotal).toFixed(2).replace('.', ',')}\n${couvertLine}${taxaLine}*Total Final: R$ ${parseFloat(payload.total).toFixed(2).replace('.', ',')}*\n\nAgradecemos muito por participar dessa experiência e conhecer uma nova forma de fazer pedidos pelo WhatsApp. 💚\n\nPedeAI e ABRASEL agradecem a sua presença!\n\nEsperamos que tenha gostado da experiência. Até a próxima! 🚀`;
-
-        evolution.sendText(restauranteId, payload.telefone, mensagem)
-          .then(() => console.log(`[CloseBill] ✅ Mensagem de conta enviada para ${payload.nome} (Restaurante: ${restauranteId})`))
-          .catch((err) => console.error(`[CloseBill] ❌ Erro ao enviar mensagem de WhatsApp:`, err.message));
-      }
+      console.log(`[CloseBill] ✅ Fechamento no banco concluído com sucesso para Mesa ${payload.numero_mesa}. Envio de WhatsApp desativado no fechamento pelo sistema.`);
+      return reply.code(200).send({ success: true, message: 'Fechamento concluído com sucesso' });
 
     } catch (err: any) {
       console.error(`[CloseBill] ❌ Erro no fechamento:`, err.message);
-      reply.code(500).send({ error: err.message });
+      return reply.code(500).send({ error: err.message });
     }
   };
 

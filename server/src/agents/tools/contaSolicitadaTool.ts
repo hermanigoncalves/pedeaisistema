@@ -116,7 +116,7 @@ export function contaSolicitadaTool(
           }
         }
 
-        if (subtotal > 0) {
+        if (itemsToProcess.length > 0) {
           // Agrupar itens iguais
           const groupedItems = itemsToProcess.reduce((acc, item) => {
             const existing = acc.find(i => i.nome === item.nome && i.preco === item.preco);
@@ -132,7 +132,7 @@ export function contaSolicitadaTool(
           const serviceFeeValue = (subtotal * taxaServicoPercentage) / 100;
           
           let couvertValue = 0;
-          if (couvertHabilitado) {
+          if (couvertHabilitado && subtotal > 0) {
             if (isComandaMode) {
               couvertValue = couvertValor;
             } else {
@@ -153,44 +153,62 @@ export function contaSolicitadaTool(
 
           // Formatar itens para mensagem
           const itensFormatados = groupedItems
-            .map(i => `${i.quantidade}x ${i.nome} - R$ ${(i.preco * i.quantidade).toFixed(2).replace('.', ',')}`)
+            .map(i => {
+              const itemTotal = i.preco * i.quantidade;
+              if (itemTotal === 0) {
+                return `• ${i.quantidade}x ${i.nome} - Cortesia / Incluso`;
+              }
+              return `• ${i.quantidade}x ${i.nome} - R$ ${itemTotal.toFixed(2).replace('.', ',')}`;
+            })
             .join('\n');
 
+          const subtotalText = subtotal > 0
+            ? `• 📋 Subtotal do consumo: R$ ${subtotal.toFixed(2).replace('.', ',')}\n`
+            : `• 📋 Consumo: Experiência Degustação (Incluso)\n`;
+
           const couvertLine = couvertValue > 0
-            ? `Couvert Artístico: R$ ${couvertValue.toFixed(2).replace('.', ',')}\n`
+            ? `• 🎵 Couvert Artístico: R$ ${couvertValue.toFixed(2).replace('.', ',')}\n`
             : '';
           const taxaLine = serviceFeeValue > 0
-            ? `Taxa de Serviço (${taxaServicoPercentage}%): R$ ${serviceFeeValue.toFixed(2).replace('.', ',')}\n`
+            ? `• 🪙 Taxa de Serviço (${taxaServicoPercentage}%): R$ ${serviceFeeValue.toFixed(2).replace('.', ',')}\n`
             : '';
 
-          const msgClienteNome = userData.nome || 'Cliente';
-          const divisaoLine = divisoes ? `👥 Conta dividida por ${divisoes} pessoas: *R$ ${(totalFinal / divisoes).toFixed(2).replace('.', ',')} por pessoa*\n\n` : '';
-          
-          const mensagem = `Olá, ${msgClienteNome}! 👋\n\nAqui está o resumo da sua conta da *Mesa ${userData.mesa_atual}*.\n\n---\n📋 *RESUMO DO CONSUMO*\n${itensFormatados}\n\n---\n💰 *DETALHES DA CONTA*\nSubtotal: R$ ${subtotal.toFixed(2).replace('.', ',')}\n${couvertLine}${taxaLine}*Total Final: R$ ${totalFinal.toFixed(2).replace('.', ',')}*\n\n${divisaoLine}🎉 *Experiência PedeAI concluída!*\n\nSua conta já foi paga e encerrada. ✅\n\nAgradecemos muito por participar dessa experiência e conhecer uma nova forma de fazer pedidos pelo WhatsApp. 💚\n\nPedeAI e ABRASEL agradecem a sua presença!\n\nEsperamos que tenha gostado da experiência. Até a próxima! 🚀`;
+          const totalLine = totalFinal > 0
+            ? `• 💰 *Total Final: R$ ${totalFinal.toFixed(2).replace('.', ',')}*`
+            : `• 💰 *Total Final: R$ 0,00 (Cortesia)*`;
 
-          // Enviar via WhatsApp em background
-          evolution.sendText(userData.id_restaurante, userData.telefone, mensagem)
-            .then(() => console.log(`[Conta_Solicitada] ✅ Mensagem enviada com sucesso para ${userData.telefone}`))
-            .catch((err: any) => console.error(`[Conta_Solicitada] ❌ Erro ao enviar mensagem de WhatsApp:`, err.message));
+          const divisaoLine = (divisoes && totalFinal > 0)
+            ? `👥 Conta dividida por ${divisoes} pessoas: *R$ ${(totalFinal / divisoes).toFixed(2).replace('.', ',')} por pessoa*\n\n`
+            : '';
+
+          return JSON.stringify({
+            success: true,
+            mesa: userData.mesa_atual,
+            pedidosAtualizados: updatedPedidos.length,
+            subtotal: subtotal.toFixed(2),
+            taxaServico: (subtotal * taxaServicoPercentage / 100).toFixed(2),
+            totalFinal: totalFinal.toFixed(2),
+            itensFormatados,
+            subtotalText,
+            couvertLine,
+            taxaLine,
+            totalLine,
+            divisaoLine,
+            itens: itemsToProcess.map(i => ({ nome: i.nome, quantidade: i.quantidade, preco: i.preco, total: i.quantidade * i.preco })),
+            message: `Conta solicitada com sucesso para Mesa ${userData.mesa_atual}! ${updatedPedidos.length} pedido(s) atualizados.`
+          });
         } else {
-          // Caso a conta esteja zerada
-          const msgClienteNome = userData.nome || 'Cliente';
-          const mensagem = `Olá, ${msgClienteNome}! 👋\n\nVocê solicitou o fechamento da sua conta da *Mesa ${userData.mesa_atual}*, mas não identificamos nenhum consumo registrado. Se precisar de ajuda, chame um garçom! 😊`;
-          
-          evolution.sendText(userData.id_restaurante, userData.telefone, mensagem)
-            .catch((err: any) => console.error(`[Conta_Solicitada] ❌ Erro ao enviar mensagem de conta vazia:`, err.message));
+          return JSON.stringify({
+            success: true,
+            mesa: userData.mesa_atual,
+            pedidosAtualizados: 0,
+            subtotal: '0.00',
+            taxaServico: '0.00',
+            totalFinal: '0.00',
+            itens: [],
+            message: `Nenhum pedido ativo encontrado para a Mesa ${userData.mesa_atual}.`
+          });
         }
-
-        return JSON.stringify({
-          success: true,
-          mesa: userData.mesa_atual,
-          pedidosAtualizados: updatedPedidos.length,
-          subtotal: subtotal.toFixed(2),
-          taxaServico: (subtotal * taxaServicoPercentage / 100).toFixed(2),
-          totalFinal: (subtotal + (subtotal * taxaServicoPercentage / 100)).toFixed(2),
-          itens: itemsToProcess.map(i => ({ nome: i.nome, quantidade: i.quantidade, preco: i.preco, total: i.quantidade * i.preco })),
-          message: `Conta solicitada com sucesso para Mesa ${userData.mesa_atual}! ${updatedPedidos.length} pedido(s) atualizados para pagamento_pendente.`
-        });
       } catch (err: any) {
         console.error('[Conta_Solicitada] Erro geral na tool:', err.message);
         return JSON.stringify({ success: false, error: err.message });
