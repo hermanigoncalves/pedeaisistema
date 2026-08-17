@@ -102,11 +102,12 @@ async function seedPolisPubProducts() {
 
   try {
     // 1. Buscar ou criar o restaurante Polis Pub
-    let { data: rest, error: restError } = await supabase.client
+    const { data: initialRest, error: restError } = await supabase.client
       .from('Restaurantes')
       .select('id, nome, email')
       .ilike('nome', '%Polis Pub%')
       .maybeSingle();
+    let rest = initialRest;
 
     if (!rest) {
       console.log('Restaurante "Polis Pub" não encontrado por nome. Buscando por email polispub@gmail.com...');
