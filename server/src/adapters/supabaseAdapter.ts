@@ -164,25 +164,26 @@ class SupabaseAdapter {
     return data;
   }
 
-  async getRestauranteByWahaSession(sessionName: string, isDelivery: boolean = false) {
-    if (!sessionName) return null;
+  async getRestauranteByEvolutionInstance(instanceName: string, isDelivery: boolean = false) {
+    if (!instanceName) return null;
 
     let query = this.client.from('Restaurantes').select('*');
 
     if (isDelivery) {
-      query = query.or(`waha_session_delivery.eq.${sessionName},waha_session_delivery.ilike.%${sessionName}%,evolution_instancia_delivery.eq.${sessionName},evolution_instancia_delivery.ilike.%${sessionName}%`);
+      query = query.or(`evolution_instancia_delivery.eq.${instanceName},evolution_instancia_delivery.ilike.%${instanceName}%`);
     } else {
-      query = query.or(`waha_session.eq.${sessionName},waha_session_delivery.eq.${sessionName},waha_session.ilike.%${sessionName}%,waha_session_delivery.ilike.%${sessionName}%,evolution_instancia.eq.${sessionName},evolution_instancia_delivery.eq.${sessionName},evolution_instancia.ilike.%${sessionName}%,evolution_instancia_delivery.ilike.%${sessionName}%`);
+      query = query.or(`evolution_instancia.eq.${instanceName},evolution_instancia_delivery.eq.${instanceName},evolution_instancia.ilike.%${instanceName}%,evolution_instancia_delivery.ilike.%${instanceName}%`);
     }
 
     const { data, error } = await query.limit(1).maybeSingle();
 
-    if (error) console.error('[Supabase] Erro getRestauranteByWahaSession:', error.message);
+    if (error) console.error('[Supabase] Erro getRestauranteByEvolutionInstance:', error.message);
     return data;
   }
 
-  async getRestauranteByEvolutionInstance(instanceName: string, isDelivery: boolean = false) {
-    return this.getRestauranteByWahaSession(instanceName, isDelivery);
+  // Alias para compatibilidade
+  async getRestauranteByWahaSession(sessionName: string, isDelivery: boolean = false) {
+    return this.getRestauranteByEvolutionInstance(sessionName, isDelivery);
   }
 
 

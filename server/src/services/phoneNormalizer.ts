@@ -43,3 +43,5 @@ export function getCanonicalPhone(phone: string): string {
 
   return clean;
 }
+
+export const canonicalPhone = getCanonicalPhone;

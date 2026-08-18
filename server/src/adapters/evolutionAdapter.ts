@@ -3,10 +3,32 @@ import { config } from '../config';
 import { supabase } from './supabaseAdapter';
 import { normalizePhone } from '../services/phoneNormalizer';
 
-/** Erros de rede que justificam retry automático */
+/** Erros de rede transitórios que justificam retry automático */
 const RETRYABLE_CODES = new Set(['EAI_AGAIN', 'ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND']);
 
-/** Retry com backoff exponencial para chamadas à Evolution Go */
+/**
+ * Verifica se o erro é o Erro 463 (Reachout Timelock) ou restrição crítica de ban da Meta.
+ * Nesses casos, o retry imediato é PROIBIDO para não queimar o chip permanentemente.
+ */
+function isReachoutOrPermanentBanError(err: any): boolean {
+  const status = (err as AxiosError)?.response?.status;
+  const data = JSON.stringify((err as AxiosError)?.response?.data || '').toLowerCase();
+  const msg = (err.message || '').toLowerCase();
+
+  return (
+    status === 463 ||
+    data.includes('463') ||
+    data.includes('reachout') ||
+    data.includes('reach-out') ||
+    data.includes('nackcallerreachout') ||
+    data.includes('restrict_all_companions') ||
+    data.includes('timelock') ||
+    msg.includes('463') ||
+    msg.includes('reachout')
+  );
+}
+
+/** Retry com backoff exponencial e salvaguarda antiban para Evolution Go */
 async function withRetry<T>(
   fn: () => Promise<T>,
   label: string,
@@ -16,6 +38,15 @@ async function withRetry<T>(
     try {
       return await fn();
     } catch (err: any) {
+      // ⚠️ SALVAGUARDA ANTIBAN (Erro 463 - Reachout Timelock)
+      if (isReachoutOrPermanentBanError(err)) {
+        console.error(
+          `[Evolution Go] 🚨 BLOQUEIO METADATA REACHOUT TIMELOCK (Erro 463) detectado em ${label}! ` +
+          `Abortando retries imediatamente para evitar banimento permanente do chip.`
+        );
+        throw err;
+      }
+
       const code = (err as AxiosError)?.code || '';
       const isTimeout = code === 'ECONNABORTED' || err.message?.includes('timeout');
       const isNetworkError = RETRYABLE_CODES.has(code) || isTimeout;
@@ -41,10 +72,8 @@ async function withRetry<T>(
  * Arquitetura Multi-tenant:
  * - Cada restaurante pode ter sua própria instância Evolution Go (URL + apikey diferentes).
  * - Se o restaurante NÃO tiver configuração própria, usa as variáveis globais do .env.
- * - As ROTAS são sempre as mesmas (/send/text, /message/presence, etc.) independente da instância.
- *   O que muda é apenas o cliente Axios (baseURL + apikey).
- * - Para diferenciar instâncias no mesmo servidor, a instância é passada no campo `instance`
- *   do corpo da requisição (conforme documentação Evolution Go).
+ * - As ROTAS são sempre as mesmas (/send/text, /send/media, /send/audio, /message/presence, etc.).
+ * - O nome da instância é sempre fornecido no corpo da requisição JSON (conforme convenção Go).
  */
 class EvolutionAdapter {
   private defaultClient: AxiosInstance;
@@ -56,13 +85,12 @@ class EvolutionAdapter {
         'Content-Type': 'application/json',
         'apikey': config.EVOLUTION_API_KEY,
       },
-      timeout: 30000, // 30s — suporta sync pesada pós-reconexão
+      timeout: 30000,
     });
   }
 
   /**
    * Retorna o cliente Axios e o nome da instância configurados para o restaurante.
-   * Se não houver configurações personalizadas, faz fallback para o .env global.
    */
   private async getClientForRestaurante(restauranteId?: string | null, isDelivery: boolean = false): Promise<{
     axiosClient: AxiosInstance;
@@ -81,15 +109,15 @@ class EvolutionAdapter {
     try {
       const restaurante = await supabase.getRestauranteById(restauranteId);
 
-      const instName = isDelivery 
+      const instName = isDelivery
         ? (restaurante?.evolution_instancia_delivery || restaurante?.evolution_instancia)
         : restaurante?.evolution_instancia;
 
       if (!instName) return defaultResult;
 
       const baseURL = config.EVOLUTION_URL;
-      const apikey = (isDelivery && restaurante?.evolution_apikey_delivery) 
-        ? restaurante.evolution_apikey_delivery 
+      const apikey = (isDelivery && restaurante?.evolution_apikey_delivery)
+        ? restaurante.evolution_apikey_delivery
         : (restaurante?.evolution_apikey || config.EVOLUTION_API_KEY);
 
       const customClient = axios.create({
@@ -111,11 +139,10 @@ class EvolutionAdapter {
     }
   }
 
-
   /**
    * Envia mensagem de texto via Evolution Go.
-   * Suporta chamadas legadas: sendText(number, text)
-   * E chamadas SaaS:  sendText(restauranteId, number, text)
+   * Suporta chamadas legadas: sendText(number, text, isDelivery?, overrideInstance?, quotedId?)
+   * E chamadas SaaS:  sendText(restauranteId, number, text, isDelivery?, overrideInstance?, quotedId?)
    */
   async sendText(
     restauranteIdOrNumber: string | null | undefined,
@@ -123,56 +150,96 @@ class EvolutionAdapter {
     text?: string,
     isDelivery: boolean = false,
     overrideInstanceName?: string,
+    quotedMessageId?: string,
   ): Promise<void> {
     let restauranteId: string | null | undefined;
     let number: string;
     let messageText: string;
 
     if (text !== undefined) {
-      // Chamada SaaS: sendText(restauranteId, number, text)
+      // Chamada SaaS: sendText(restauranteId, number, text, ...)
       restauranteId = restauranteIdOrNumber;
       number = numberOrText || '';
       messageText = text;
     } else {
-      // Chamada Legada: sendText(number, text)
+      // Chamada Legada: sendText(number, text, ...)
       restauranteId = undefined;
       number = restauranteIdOrNumber || '';
       messageText = numberOrText || '';
     }
 
     const { axiosClient, instanceName: defaultInstanceName } = await this.getClientForRestaurante(restauranteId, isDelivery);
-    let instanceName = defaultInstanceName;
-
-    // Se o webhook forneceu explicitamente o nome da instância que recebeu a mensagem, prioriza ela!
-    if (overrideInstanceName && overrideInstanceName.trim()) {
-      instanceName = overrideInstanceName.trim();
-    }
-
-
-
+    let instanceName = overrideInstanceName?.trim() || defaultInstanceName;
     const cleanNumber = normalizePhone(number);
 
     await withRetry(async () => {
       try {
-        await axiosClient.post('/send/text', {
+        const payload: Record<string, any> = {
           instance: instanceName,
           number: cleanNumber,
           text: messageText,
-          delay: 1000,
-        });
-        console.log(`[Evolution Go] ✅ Texto enviado para ${cleanNumber} (Instância: ${instanceName})`);
+          delay: 1200, // delay humanizado para simular digitação
+        };
 
+        if (quotedMessageId) {
+          payload.quoted = { messageId: quotedMessageId };
+        }
+
+        await axiosClient.post('/send/text', payload);
+        console.log(`[Evolution Go] ✅ Texto enviado para ${cleanNumber} (Instância: ${instanceName})`);
       } catch (err: any) {
         console.error(`[Evolution Go] ❌ Erro ao enviar texto:`, err.response?.data || err.message);
         throw err;
       }
-    }, `sendText(${cleanNumber})`);  
+    }, `sendText(${cleanNumber})`);
   }
 
   /**
-   * Envia status "digitando..." ou "gravando..." no chat.
-   * Suporta chamadas legadas: sendPresence(number, state)
-   * E chamadas SaaS:  sendPresence(restauranteId, number, state)
+   * Envia áudio de voz PTT (gravado) via Evolution Go (/send/audio).
+   */
+  async sendAudio(
+    restauranteIdOrNumber: string | null | undefined,
+    numberOrUrl?: string,
+    url?: string,
+    isDelivery: boolean = false,
+    overrideInstanceName?: string,
+  ): Promise<void> {
+    let restauranteId: string | null | undefined;
+    let number: string;
+    let audioUrl: string;
+
+    if (url !== undefined) {
+      restauranteId = restauranteIdOrNumber;
+      number = numberOrUrl || '';
+      audioUrl = url;
+    } else {
+      restauranteId = undefined;
+      number = restauranteIdOrNumber || '';
+      audioUrl = numberOrUrl || '';
+    }
+
+    const { axiosClient, instanceName: defaultInstanceName } = await this.getClientForRestaurante(restauranteId, isDelivery);
+    const instanceName = overrideInstanceName?.trim() || defaultInstanceName;
+    const cleanNumber = normalizePhone(number);
+
+    await withRetry(async () => {
+      try {
+        await axiosClient.post('/send/audio', {
+          instance: instanceName,
+          number: cleanNumber,
+          url: audioUrl,
+          delay: 1500,
+        });
+        console.log(`[Evolution Go] 🎙️ Áudio PTT enviado para ${cleanNumber} (Instância: ${instanceName})`);
+      } catch (err: any) {
+        console.error(`[Evolution Go] ❌ Erro ao enviar áudio:`, err.response?.data || err.message);
+        throw err;
+      }
+    }, `sendAudio(${cleanNumber})`);
+  }
+
+  /**
+   * Envia status "digitando..." ou "gravando..." no chat (/message/presence).
    */
   async sendPresence(
     restauranteIdOrNumber: string | null | undefined,
@@ -184,12 +251,10 @@ class EvolutionAdapter {
     let presenceState: 'composing' | 'paused' | 'recording';
 
     if (numberOrState === 'composing' || numberOrState === 'paused' || numberOrState === 'recording') {
-      // Chamada Legada: sendPresence(number, state)
       restauranteId = undefined;
       number = restauranteIdOrNumber || '';
       presenceState = numberOrState;
     } else {
-      // Chamada SaaS: sendPresence(restauranteId, number, state)
       restauranteId = restauranteIdOrNumber;
       number = numberOrState || '';
       presenceState = state;
@@ -200,20 +265,90 @@ class EvolutionAdapter {
 
     try {
       await axiosClient.post('/message/presence', {
+        instance: instanceName,
         number: cleanNumber,
         state: presenceState,
         isAudio: presenceState === 'recording',
       });
     } catch (err: any) {
       console.warn(`[Evolution Go] ⚠️ Presença falhou:`, err.response?.data || err.message);
-      // Presença é opcional — não lança erro
     }
   }
 
   /**
-   * Envia mídia (imagem, vídeo, áudio, documento) via Evolution Go.
-   * Suporta chamadas legadas: sendMedia(opts)
-   * E chamadas SaaS:  sendMedia(restauranteId, opts)
+   * Marca mensagem como lida (/message/markread) para simular comportamento humano.
+   */
+  async markRead(
+    restauranteIdOrNumber: string | null | undefined,
+    numberOrId?: string,
+    messageId?: string,
+  ): Promise<void> {
+    let restauranteId: string | null | undefined;
+    let number: string;
+    let msgId: string | undefined;
+
+    if (messageId !== undefined) {
+      restauranteId = restauranteIdOrNumber;
+      number = numberOrId || '';
+      msgId = messageId;
+    } else {
+      restauranteId = undefined;
+      number = restauranteIdOrNumber || '';
+      msgId = numberOrId;
+    }
+
+    const cleanNumber = normalizePhone(number);
+    const { axiosClient, instanceName } = await this.getClientForRestaurante(restauranteId);
+
+    try {
+      await axiosClient.post('/message/markread', {
+        instance: instanceName,
+        number: cleanNumber,
+        messageId: msgId,
+      });
+    } catch {
+      // Opcional
+    }
+  }
+
+  /**
+   * Marca áudio como reproduzido / ouvido (microfone azul) (/message/markplayed).
+   */
+  async markPlayed(
+    restauranteIdOrNumber: string | null | undefined,
+    numberOrId?: string,
+    messageId?: string,
+  ): Promise<void> {
+    let restauranteId: string | null | undefined;
+    let number: string;
+    let msgId: string | undefined;
+
+    if (messageId !== undefined) {
+      restauranteId = restauranteIdOrNumber;
+      number = numberOrId || '';
+      msgId = messageId;
+    } else {
+      restauranteId = undefined;
+      number = restauranteIdOrNumber || '';
+      msgId = numberOrId;
+    }
+
+    const cleanNumber = normalizePhone(number);
+    const { axiosClient, instanceName } = await this.getClientForRestaurante(restauranteId);
+
+    try {
+      await axiosClient.post('/message/markplayed', {
+        instance: instanceName,
+        number: cleanNumber,
+        messageId: msgId,
+      });
+    } catch {
+      // Opcional
+    }
+  }
+
+  /**
+   * Envia mídia (imagem, vídeo, documento) via Evolution Go (/send/media).
    */
   async sendMedia(
     restauranteIdOrOpts: any,
@@ -242,6 +377,7 @@ class EvolutionAdapter {
     await withRetry(async () => {
       try {
         const payload: Record<string, any> = {
+          instance: instanceName,
           number: cleanNumber,
           type: mediaOpts.mediatype,
           url: mediaOpts.media,
@@ -259,13 +395,11 @@ class EvolutionAdapter {
         console.error(`[Evolution Go] ❌ Erro ao enviar mídia (${mediaOpts?.mediatype}):`, err.response?.data || err.message);
         throw err;
       }
-    }, `sendMedia(${cleanNumber})`);  
+    }, `sendMedia(${cleanNumber})`);
   }
 
   /**
-   * Baixa mídia de uma mensagem.
-   * Suporta chamadas legadas: downloadMedia(message)
-   * E chamadas SaaS:  downloadMedia(restauranteId, message)
+   * Baixa mídia de uma mensagem (/message/downloadimage).
    */
   async downloadMedia(restauranteIdOrMessage: any, message?: any): Promise<any> {
     let restauranteId: string | null | undefined;
@@ -285,7 +419,7 @@ class EvolutionAdapter {
       const res = await axiosClient.post('/message/downloadimage', { message: rawMessage });
       return res.data;
     } catch (err: any) {
-      console.error(`[Evolution] ❌ Erro ao baixar mídia:`, err.response?.data || err.message);
+      console.error(`[Evolution Go] ❌ Erro ao baixar mídia:`, err.response?.data || err.message);
       throw err;
     }
   }

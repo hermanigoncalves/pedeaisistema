@@ -1,7 +1,7 @@
 import OpenAI, { toFile } from 'openai';
 import axios from 'axios';
 import { config } from '../config';
-import { waha, evolution } from '../adapters/wahaAdapter';
+import { evolution } from '../adapters/evolutionAdapter';
 import { supabase } from '../adapters/supabaseAdapter';
 
 const openai = new OpenAI({ apiKey: config.OPENAI_API_KEY });
@@ -31,7 +31,7 @@ export async function transcribeAudio(input: Buffer | string): Promise<string> {
         console.log('[Media] 🌐 Baixando arquivo de áudio da URL com autenticação...');
         const response = await axios.get(trimmed, {
           responseType: 'arraybuffer',
-          headers: { 'X-Api-Key': config.WAHA_API_KEY || config.EVOLUTION_API_KEY },
+          headers: { 'apikey': config.EVOLUTION_API_KEY },
           timeout: 15000,
         });
         buffer = Buffer.from(response.data);
@@ -83,7 +83,7 @@ export async function analyzeImage(input: Buffer | string): Promise<string> {
       } else if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
         const res = await axios.get(trimmed, {
           responseType: 'arraybuffer',
-          headers: { 'X-Api-Key': config.WAHA_API_KEY || config.EVOLUTION_API_KEY },
+          headers: { 'apikey': config.EVOLUTION_API_KEY },
           timeout: 15000,
         });
         const mime = res.headers['content-type'] || 'image/jpeg';
@@ -121,8 +121,7 @@ export async function analyzeImage(input: Buffer | string): Promise<string> {
 }
 
 /**
- * Baixa mídia e processa (transcrição ou análise visual).
- * Suporta WAHA e Evolution API.
+ * Baixa mídia e processa (transcrição ou análise visual) via Evolution Go.
  */
 export async function downloadAndProcess(
   restauranteId: string | null | undefined,
@@ -130,7 +129,7 @@ export async function downloadAndProcess(
   type: 'audio' | 'image',
 ): Promise<string> {
   try {
-    const buffer = await waha.downloadMedia(restauranteId, rawMessage);
+    const buffer = await evolution.downloadMedia(restauranteId, rawMessage);
     if (!buffer || buffer.length === 0) {
       console.warn('[Media] ⚠️ Buffer de mídia vazio após download');
       return type === 'audio' ? '[Áudio sem conteúdo]' : '[Imagem sem conteúdo]';

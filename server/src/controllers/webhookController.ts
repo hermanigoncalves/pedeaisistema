@@ -4,7 +4,7 @@ import { normalizePhone } from '../services/phoneNormalizer';
 import { pushToBuffer, waitAndCollect } from '../services/messageBuffer';
 import { transcribeAudio, analyzeImage, downloadAndProcess, uploadMediaBuffer } from '../services/mediaService';
 import { sendTypingAndWait } from '../services/presenceService';
-import { waha, evolution } from '../adapters/wahaAdapter';
+import { evolution } from '../adapters/evolutionAdapter';
 import { supabase } from '../adapters/supabaseAdapter';
 import { runAgent } from '../agents/pedeaiAgent';
 
@@ -210,7 +210,7 @@ async function handleWebhookRequest(request: any, reply: any) {
       // Transcrição de áudio se necessário
       if (messageType === 'audio') {
         log.warn({ restauranteId }, '[PIPELINE] Baixando e transcrevendo áudio...');
-        let audioBuffer = await waha.downloadMedia(restauranteId, wahaMsg || rawData);
+        let audioBuffer = await evolution.downloadMedia(restauranteId, wahaMsg || rawData);
 
         if (!audioBuffer || audioBuffer.length === 0) {
           const rawBase64 = wahaMsg?.base64 || message?.base64 || wahaMsg?.media?.data || rawData?.payload?.media?.data;
@@ -267,13 +267,13 @@ async function handleWebhookRequest(request: any, reply: any) {
 
       log.warn({ phone, collectedMessage }, '[PIPELINE] Mensagem coletada do buffer. Processando...');
 
-      // 7. Resolver restaurante dinamicamente pela Sessão WAHA / Instância Evolution recebida no webhook
+      // 7. Resolver restaurante dinamicamente pela Instância Evolution recebida no webhook
       const instanceName = payload.session || payload.instance || payload.instanceId || info.Instance || '';
       let detectedRestaurante = null;
 
       if (instanceName) {
-        log.warn({ instanceName }, '[PIPELINE] Buscando restaurante pela sessão WAHA / instância...');
-        detectedRestaurante = await supabase.getRestauranteByWahaSession(instanceName, false);
+        log.warn({ instanceName }, '[PIPELINE] Buscando restaurante pela instância Evolution Go...');
+        detectedRestaurante = await supabase.getRestauranteByEvolutionInstance(instanceName, false);
       }
 
       if (!detectedRestaurante) {

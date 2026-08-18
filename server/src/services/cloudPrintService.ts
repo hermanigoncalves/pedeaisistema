@@ -310,3 +310,9 @@ export function completeCloudJob(restauranteId: string, jobId: string) {
   }
   return false;
 }
+
+export const cloudPrintService = {
+  getPendingJobs: getPendingCloudJobs,
+  completeJob: (jobId: string, restauranteId?: string) => completeCloudJob(restauranteId || 'default', jobId),
+  start: startCloudPrintService,
+};
